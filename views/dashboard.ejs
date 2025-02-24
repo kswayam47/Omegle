@@ -109,90 +109,63 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // Get the current hostname and port
+        const currentHost = window.location.hostname;
+        const currentPort = window.location.port;
+        const socketUrl = `${window.location.protocol}//${currentHost}${currentPort ? ':' + currentPort : ''}`;
+
         // Connect to friend-specific socket for online status
-        const friendSocket = io('http://localhost:5000', {
-            path: '/friend-socket',
-            withCredentials: true
+        const socket = io(socketUrl, {
+            path: '/socket.io',
+            withCredentials: true,
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
         });
 
-        // Connect to main socket for friend requests
-        const socket = io();
+        // Store current user's uniqueId
+        const myUniqueId = '<%= user.uniqueId %>';
+        let onlineFriends = new Set();
         let pendingRequestId = null;
 
-        // Store current user's uniqueId and friends list
-        const myUniqueId = '<%= user.uniqueId %>';
-        const myFriends = new Set([<% friends.forEach((friend, index) => { %>
-            '<%= friend.uniqueId %>'<%= index < friends.length - 1 ? ',' : '' %>
-        <% }); %>]);
-        
-        // Track online friends
-        const onlineFriends = new Set();
-
-        // Function to update friend's online status in UI
-        function updateFriendStatus(friendId, isOnline) {
-            console.log('Received status update:', {
-                friendId,
-                isOnline,
-                isFriend: myFriends.has(friendId),
-                myId: myUniqueId
-            });
-
-            // Only update if this is one of our friends
-            if (!myFriends.has(friendId)) {
-                console.log('Ignoring status update - not a friend');
-                return;
-            }
-
-            const friendElement = document.getElementById(`friend-${friendId}`);
-            if (friendElement) {
-                const statusDot = friendElement.querySelector('.online-status');
-                const chatBtn = friendElement.querySelector('.chat-btn');
-                
-                if (isOnline) {
-                    statusDot.classList.remove('offline');
-                    statusDot.classList.add('online');
-                    onlineFriends.add(friendId);
-                    chatBtn.removeAttribute('disabled');
-                    console.log('Updated friend to ONLINE:', friendId);
-                } else {
-                    statusDot.classList.remove('online');
-                    statusDot.classList.add('offline');
-                    onlineFriends.delete(friendId);
-                    chatBtn.setAttribute('disabled', 'disabled');
-                    console.log('Updated friend to OFFLINE:', friendId);
-                }
-
-                // Log current state
-                console.log('Current online friends:', {
-                    friendId,
-                    onlineFriends: Array.from(onlineFriends),
-                    dotClass: statusDot.className,
-                    buttonEnabled: !chatBtn.disabled
-                });
-            } else {
-                console.log('Friend element not found:', {
-                    friendId,
-                    availableElements: Array.from(document.querySelectorAll('[id^="friend-"]')).map(el => el.id)
-                });
-            }
-        }
-
-        // Connect to socket.io with session data
-        friendSocket.on('connect', () => {
+        // Connect to socket.io
+        socket.on('connect', () => {
             console.log('Connected to friend socket. My ID:', myUniqueId);
-            console.log('My friends:', Array.from(myFriends));
-            // Send online status
-            friendSocket.emit('userOnline', { uniqueId: myUniqueId });
+            socket.emit('userOnline', { uniqueId: myUniqueId });
         });
 
-        socket.on('connect', () => {
-            console.log('Connected to main socket');
+        socket.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+        });
+
+        socket.on('reconnect', (attemptNumber) => {
+            console.log('Reconnected after', attemptNumber, 'attempts');
+            socket.emit('userOnline', { uniqueId: myUniqueId });
         });
 
         // Handle friend status updates
-        friendSocket.on('friendStatus', (data) => {
-            console.log('Friend status update received:', data);
-            updateFriendStatus(data.friendId, data.isOnline);
+        socket.on('friendStatus', (data) => {
+            const { friendId, isOnline } = data;
+            console.log('Friend status update:', { friendId, isOnline });
+            
+            const friendElement = document.getElementById(`friend-${friendId}`);
+            if (friendElement) {
+                const statusDot = friendElement.querySelector('.online-status');
+                const chatButton = friendElement.querySelector('.chat-btn');
+                
+                if (isOnline) {
+                    onlineFriends.add(friendId);
+                    statusDot.classList.remove('offline');
+                    statusDot.classList.add('online');
+                    chatButton.disabled = false;
+                } else {
+                    onlineFriends.delete(friendId);
+                    statusDot.classList.remove('online');
+                    statusDot.classList.add('offline');
+                    chatButton.disabled = true;
+                }
+            }
         });
 
         socket.on('error', (data) => {

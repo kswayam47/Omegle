@@ -75,10 +75,19 @@
     </div>
 
     <script>
-        // Connect to friend-specific socket for online status
-        const socket = io('http://localhost:5000', {
-            path: '/friend-socket',
-            withCredentials: true
+        // Get the current hostname and port
+        const currentHost = window.location.hostname;
+        const currentPort = window.location.port;
+        const socketUrl = `${window.location.protocol}//${currentHost}${currentPort ? ':' + currentPort : ''}`;
+
+        // Connect to socket
+        const socket = io(socketUrl, {
+            path: '/socket.io',
+            withCredentials: true,
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
         });
 
         // Store current user's uniqueId and friend's uniqueId
@@ -89,10 +98,20 @@
 
         // Connect to socket.io
         socket.on('connect', () => {
-            console.log('Connected to friend socket in chat. My ID:', myUniqueId);
+            console.log('Connected to socket in chat. My ID:', myUniqueId);
             // Send online status immediately on connect
             socket.emit('userOnline', { uniqueId: myUniqueId });
             // Join private room for chat
+            socket.emit('joinPrivateRoom', { friendId });
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+        });
+
+        socket.on('reconnect', (attemptNumber) => {
+            console.log('Reconnected after', attemptNumber, 'attempts');
+            socket.emit('userOnline', { uniqueId: myUniqueId });
             socket.emit('joinPrivateRoom', { friendId });
         });
 

@@ -30,15 +30,25 @@ const sessionMiddleware = session({
         mongoUrl: 'mongodb://localhost:27017/omegle'
     }),
     cookie: {
-        maxAge: 1000 * 60 * 60 * 24 // 24 hours
+        maxAge: 1000 * 60 * 60 * 24, // 24 hours
+        sameSite: 'none',
+        secure: true
     }
 });
 
-// Enable CORS
+// Enable CORS with more permissive settings
 app.use(cors({
-    origin: 'http://localhost:5000',
-    credentials: true
-}));    
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps)
+        if(!origin) return callback(null, true);
+        
+        // Allow all origins for development
+        return callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 app.use(sessionMiddleware);
 
@@ -48,28 +58,26 @@ const wrap = middleware => (socket, next) => middleware(socket.request, {}, next
 // Initialize main socket server
 const io = socketIO(server, {
     cors: {
-        origin: "http://localhost:5000",
+        origin: function(origin, callback) {
+            // Allow requests with no origin (like mobile apps)
+            if(!origin) return callback(null, true);
+            
+            // Allow all origins for development
+            return callback(null, true);
+        },
+        credentials: true,
         methods: ["GET", "POST"],
-        credentials: true
-    }
+        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+    },
+    allowEIO3: true, // Allow Engine.IO version 3 clients
+    transports: ['websocket', 'polling'] // Enable both WebSocket and polling
 });
 
-// Initialize friend socket server
-const friendIo = socketIO(server, {
-    path: '/friend-socket',
-    cors: {
-        origin: "http://localhost:5000",
-        methods: ["GET", "POST"],
-        credentials: true
-    }
-});
-
-// Use session middleware for both socket servers
+// Use session middleware with Socket.IO
 io.use(wrap(sessionMiddleware));
-friendIo.use(wrap(sessionMiddleware));
 
-// Initialize friend socket handlers
-initFriendSocket(friendIo);
+// Initialize friend socket
+initFriendSocket(io);
 
 const PRIVATE_ROOM_ID = 'rkgjtnnigot';
 const PRIVATE_ROOM_PIN = '1234'; // You should change this to your desired PIN
@@ -343,5 +351,6 @@ app.use("/",indexrouter);
 app.use("/auth",authRouter);
 
 const port = process.env.PORT || 5000;
-
-server.listen(port);
+server.listen(port, '0.0.0.0', () => {
+    console.log(`Server running on port ${port}`);
+});
