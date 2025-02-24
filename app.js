@@ -6,27 +6,105 @@ const http = require("http")
 const server = http.createServer(app);
 const socketIO = require("socket.io");
 const io = socketIO(server);
+const PRIVATE_ROOM_ID = 'rkgjtnnigot';
+const PRIVATE_ROOM_PIN = '1234'; // You should change this to your desired PIN
 let waitingusers = [];
 let activeRooms = {}; // Track active rooms and their participants
 
 io.on("connection", function(socket) {
-    socket.on("joinroom", function(customRoomId = null) {
-        // Remove user from any existing room first
+    socket.on("joinPrivateRoom", function(data) {
+        const { pin } = data;
+        
+        if (pin !== PRIVATE_ROOM_PIN) {
+            socket.emit("wrongPin", {
+                message: "Incorrect PIN for private room"
+            });
+            return;
+        }
+
+        // Leave any existing rooms first
+        socket.rooms.forEach(room => {
+            if (room !== socket.id) {
+                socket.leave(room);
+            }
+        });
+
+        // Remove from any active rooms
         for (let roomId in activeRooms) {
-            if (activeRooms[roomId].includes(socket.id)) {
-                delete activeRooms[roomId];
+            const index = activeRooms[roomId].indexOf(socket.id);
+            if (index !== -1) {
+                activeRooms[roomId].splice(index, 1);
+                if (activeRooms[roomId].length === 0) {
+                    delete activeRooms[roomId];
+                }
             }
         }
 
-        // If custom room ID is provided, try to join that room
+        // Remove from waiting users
+        waitingusers = waitingusers.filter(user => user.id !== socket.id);
+
+        // Join or create private room
+        if (!activeRooms[PRIVATE_ROOM_ID]) {
+            activeRooms[PRIVATE_ROOM_ID] = [socket.id];
+            socket.join(PRIVATE_ROOM_ID);
+            socket.emit("waitingForPartner", {
+                roomId: PRIVATE_ROOM_ID,
+                message: "Waiting for someone to join the private room..."
+            });
+        } else if (activeRooms[PRIVATE_ROOM_ID].length < 2) {
+            socket.join(PRIVATE_ROOM_ID);
+            activeRooms[PRIVATE_ROOM_ID].push(socket.id);
+            
+            // Notify all users in the room
+            io.to(PRIVATE_ROOM_ID).emit("privateRoomJoined", {
+                title: "Private Chat Started",
+                message: "A new user has joined the private chat room",
+                participants: activeRooms[PRIVATE_ROOM_ID].length,
+                roomId: PRIVATE_ROOM_ID
+            });
+
+            // Initialize the connection between peers
+            io.to(PRIVATE_ROOM_ID).emit("joined", PRIVATE_ROOM_ID);
+        } else {
+            socket.emit("roomFull", {
+                message: "Private room is currently full. Please try again later."
+            });
+        }
+    });
+
+    socket.on("joinroom", function(customRoomId = null) {
+        // Don't allow joining regular rooms if user is in private room
+        if (socket.rooms.has(PRIVATE_ROOM_ID)) {
+            return;
+        }
+
+        // Remove user from any existing room first
+        for (let roomId in activeRooms) {
+            const index = activeRooms[roomId].indexOf(socket.id);
+            if (index !== -1) {
+                activeRooms[roomId].splice(index, 1);
+                if (activeRooms[roomId].length === 0) {
+                    delete activeRooms[roomId];
+                }
+            }
+        }
+
         if (customRoomId) {
+            // Don't allow joining the private room ID through this method
+            if (customRoomId === PRIVATE_ROOM_ID) {
+                socket.emit("error", {
+                    message: "Please use the private room join button to access this room"
+                });
+                return;
+            }
+
             if (activeRooms[customRoomId] && activeRooms[customRoomId].length < 2) {
-                // Join existing room
                 socket.join(customRoomId);
                 activeRooms[customRoomId].push(socket.id);
-                io.to(customRoomId).emit("joined", customRoomId);
+                if (activeRooms[customRoomId].length === 2) {
+                    io.to(customRoomId).emit("joined", customRoomId);
+                }
             } else if (!activeRooms[customRoomId]) {
-                // Create new room with custom ID
                 socket.join(customRoomId);
                 activeRooms[customRoomId] = [socket.id];
                 socket.emit("waitingForPartner", customRoomId);
@@ -36,23 +114,19 @@ io.on("connection", function(socket) {
             return;
         }
 
-        // Remove disconnected users from waiting list
-        waitingusers = waitingusers.filter(user => user.connected);
-
+        // Handle random room joining
         if (waitingusers.length > 0) {
-            let partner = waitingusers.shift();
-            const roomname = `${socket.id}-${partner.id}`;
-            socket.join(roomname);
-            partner.join(roomname);
+            const partner = waitingusers.shift();
+            const roomId = Math.random().toString(36).substring(7);
             
-            // Store room participants
-            activeRooms[roomname] = [socket.id, partner.id];
+            socket.join(roomId);
+            partner.join(roomId);
             
-            io.to(roomname).emit("joined", roomname);
-            console.log("both connected in room:", roomname);
+            activeRooms[roomId] = [socket.id, partner.id];
+            io.to(roomId).emit("joined", roomId);
         } else {
             waitingusers.push(socket);
-            console.log("user waiting:", socket.id);
+            socket.emit("waitingForPartner");
         }
     });
 
@@ -60,25 +134,17 @@ io.on("connection", function(socket) {
         // Remove from waiting list
         waitingusers = waitingusers.filter(user => user.id !== socket.id);
 
-        // Find and handle disconnection from active room
+        // Remove from active rooms and notify remaining users
         for (let roomId in activeRooms) {
-            if (activeRooms[roomId].includes(socket.id)) {
-                const otherUser = activeRooms[roomId].find(id => id !== socket.id);
-                if (otherUser) {
-                    // Notify other user about disconnection
-                    io.to(otherUser).emit("partnerDisconnected");
+            const index = activeRooms[roomId].indexOf(socket.id);
+            if (index !== -1) {
+                activeRooms[roomId].splice(index, 1);
+                if (activeRooms[roomId].length === 0) {
+                    delete activeRooms[roomId];
+                } else {
+                    // Notify remaining users about disconnection
+                    io.to(roomId).emit("partnerDisconnected");
                 }
-                // Delete the room entirely
-                delete activeRooms[roomId];
-                
-                // Force both users to leave the room
-                if (otherUser) {
-                    const otherSocket = io.sockets.sockets.get(otherUser);
-                    if (otherSocket) {
-                        otherSocket.leave(roomId);
-                    }
-                }
-                socket.leave(roomId);
             }
         }
     });

@@ -583,6 +583,15 @@
 
             socket.emit("joinroom");
         });
+
+        socket.on("privateRoomJoined", function() {
+            if (localStorage.getItem('notificationsEnabled') === 'true') {
+                new Notification("New User Joined!", {
+                    body: "Someone has joined your private chat room.",
+                    icon: "/path/to/your/icon.png" // Optional: Add your notification icon
+                });
+            }
+        });
     </script>
 </body>
 
