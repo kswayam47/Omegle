@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Omegle Clone</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .room-id-container {
+      display: none;
+    }
+
+    .room-id-container.active {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .back-button {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      padding: 0.5rem;
+      cursor: pointer;
+      color: #4F46E5;
+    }
+
+    #generated-room-id {
+      font-family: monospace;
+      padding: 0.75rem;
+      background: #F3F4F6;
+      border-radius: 0.375rem;
+      text-align: center;
+      font-size: 1.125rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .copy-button {
+      background: none;
+      border: none;
+      color: #4F46E5;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+
+<body class="flex items-center justify-center min-h-screen bg-gray-100">
+  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md relative">
+    <!-- Main Options -->
+    <div id="main-options" class="flex flex-col gap-4">
+      <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Welcome to Omegle Clone</h1>
+      
+      <button onclick="showRandomChat()" 
+        class="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 transition duration-200">
+        Random Chat
+      </button>
+      
+      <button onclick="showCreateRoom()" 
+        class="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 transition duration-200">
+        Create Room
+      </button>
+      
+      <button onclick="showJoinRoom()" 
+        class="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 transition duration-200">
+        Join Room
+      </button>
+    </div>
+
+    <!-- Create Room Container -->
+    <div id="create-room" class="room-id-container">
+      <span class="back-button" onclick="showMainOptions()">← Back</span>
+      <h2 class="text-xl font-semibold mb-4 text-center">Your Room ID</h2>
+      <div id="generated-room-id"></div>
+      <button class="copy-button" onclick="copyRoomId()">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+          <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+        </svg>
+        Copy Room ID
+      </button>
+      <p class="text-sm text-gray-500 text-center mt-4">Share this Room ID with someone to start chatting</p>
+      <button onclick="proceedToChat()" 
+        class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 mt-4">
+        Proceed to Chat
+      </button>
+    </div>
+
+    <!-- Join Room Container -->
+    <div id="join-room" class="room-id-container">
+      <span class="back-button" onclick="showMainOptions()">← Back</span>
+      <h2 class="text-xl font-semibold mb-4 text-center">Join a Room</h2>
+      <input type="text" id="room-id-input" 
+        class="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        placeholder="Enter Room ID">
+      <button onclick="joinRoom()" 
+        class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 mt-4">
+        Join Chat
+      </button>
+    </div>
+  </div>
+
+  <script>
+    function generateRoomId() {
+      return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    }
+
+    function showMainOptions() {
+      document.getElementById('main-options').style.display = 'flex';
+      document.getElementById('create-room').classList.remove('active');
+      document.getElementById('join-room').classList.remove('active');
+    }
+
+    function showRandomChat() {
+      window.location.href = '/chat';
+    }
+
+    function showCreateRoom() {
+      document.getElementById('main-options').style.display = 'none';
+      document.getElementById('create-room').classList.add('active');
+      const roomId = generateRoomId();
+      document.getElementById('generated-room-id').textContent = roomId;
+    }
+
+    function showJoinRoom() {
+      document.getElementById('main-options').style.display = 'none';
+      document.getElementById('join-room').classList.add('active');
+    }
+
+    function copyRoomId() {
+      const roomId = document.getElementById('generated-room-id').textContent;
+      navigator.clipboard.writeText(roomId);
+      const copyButton = document.querySelector('.copy-button');
+      copyButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+        </svg>
+        Copied!
+      `;
+      setTimeout(() => {
+        copyButton.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+          </svg>
+          Copy Room ID
+        `;
+      }, 2000);
+    }
+
+    function proceedToChat() {
+      const roomId = document.getElementById('generated-room-id').textContent;
+      window.location.href = `/chat?room=${roomId}`;
+    }
+
+    function joinRoom() {
+      const roomId = document.getElementById('room-id-input').value.trim();
+      if (roomId) {
+        window.location.href = `/chat?room=${roomId}`;
+      } else {
+        alert('Please enter a Room ID');
+      }
+    }
+  </script>
+</body>
+
+</html>
