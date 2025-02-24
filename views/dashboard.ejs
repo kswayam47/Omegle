@@ -44,6 +44,19 @@
         .notification.success {
             background-color: #198754;
         }
+        .online-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .online {
+            background-color: #28a745;
+        }
+        .offline {
+            background-color: #dc3545;
+        }
     </style>
 </head>
 <body>
@@ -67,9 +80,12 @@
                         <h3>Your Friends</h3>
                         <div id="friendsList">
                             <% friends.forEach(friend => { %>
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span><%= friend.name %> (<%= friend.uniqueId %>)</span>
-                                    <button class="btn btn-success btn-sm" onclick="startChat('<%= friend.uniqueId %>')">Chat</button>
+                                <div class="d-flex justify-content-between align-items-center mb-2" id="friend-<%= friend.uniqueId %>">
+                                    <div>
+                                        <span class="online-status offline"></span>
+                                        <span><%= friend.name %> (<%= friend.uniqueId %>)</span>
+                                    </div>
+                                    <button class="btn btn-success btn-sm chat-btn" onclick="startChat('<%= friend.uniqueId %>')" disabled>Chat</button>
                                 </div>
                             <% }); %>
                         </div>
@@ -93,12 +109,90 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        // Connect to friend-specific socket for online status
+        const friendSocket = io('http://localhost:5000', {
+            path: '/friend-socket',
+            withCredentials: true
+        });
+
+        // Connect to main socket for friend requests
         const socket = io();
         let pendingRequestId = null;
 
+        // Store current user's uniqueId and friends list
+        const myUniqueId = '<%= user.uniqueId %>';
+        const myFriends = new Set([<% friends.forEach((friend, index) => { %>
+            '<%= friend.uniqueId %>'<%= index < friends.length - 1 ? ',' : '' %>
+        <% }); %>]);
+        
+        // Track online friends
+        const onlineFriends = new Set();
+
+        // Function to update friend's online status in UI
+        function updateFriendStatus(friendId, isOnline) {
+            console.log('Received status update:', {
+                friendId,
+                isOnline,
+                isFriend: myFriends.has(friendId),
+                myId: myUniqueId
+            });
+
+            // Only update if this is one of our friends
+            if (!myFriends.has(friendId)) {
+                console.log('Ignoring status update - not a friend');
+                return;
+            }
+
+            const friendElement = document.getElementById(`friend-${friendId}`);
+            if (friendElement) {
+                const statusDot = friendElement.querySelector('.online-status');
+                const chatBtn = friendElement.querySelector('.chat-btn');
+                
+                if (isOnline) {
+                    statusDot.classList.remove('offline');
+                    statusDot.classList.add('online');
+                    onlineFriends.add(friendId);
+                    chatBtn.removeAttribute('disabled');
+                    console.log('Updated friend to ONLINE:', friendId);
+                } else {
+                    statusDot.classList.remove('online');
+                    statusDot.classList.add('offline');
+                    onlineFriends.delete(friendId);
+                    chatBtn.setAttribute('disabled', 'disabled');
+                    console.log('Updated friend to OFFLINE:', friendId);
+                }
+
+                // Log current state
+                console.log('Current online friends:', {
+                    friendId,
+                    onlineFriends: Array.from(onlineFriends),
+                    dotClass: statusDot.className,
+                    buttonEnabled: !chatBtn.disabled
+                });
+            } else {
+                console.log('Friend element not found:', {
+                    friendId,
+                    availableElements: Array.from(document.querySelectorAll('[id^="friend-"]')).map(el => el.id)
+                });
+            }
+        }
+
         // Connect to socket.io with session data
+        friendSocket.on('connect', () => {
+            console.log('Connected to friend socket. My ID:', myUniqueId);
+            console.log('My friends:', Array.from(myFriends));
+            // Send online status
+            friendSocket.emit('userOnline', { uniqueId: myUniqueId });
+        });
+
         socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('Connected to main socket');
+        });
+
+        // Handle friend status updates
+        friendSocket.on('friendStatus', (data) => {
+            console.log('Friend status update received:', data);
+            updateFriendStatus(data.friendId, data.isOnline);
         });
 
         socket.on('error', (data) => {
@@ -127,7 +221,7 @@
                 showNotification('Please enter a friend ID', 'error');
                 return;
             }
-            if (friendId === '<%= user.uniqueId %>') {
+            if (friendId === myUniqueId) {
                 showNotification('You cannot send a friend request to yourself', 'error');
                 return;
             }
@@ -155,7 +249,12 @@
         }
 
         function startChat(friendId) {
-            window.location.href = `/chat?friend=${friendId}`;
+            // Only allow chat if friend is online
+            if (onlineFriends.has(friendId)) {
+                window.location.href = `/friend-chat/${friendId}`;
+            } else {
+                showNotification('This friend is currently offline', 'error');
+            }
         }
 
         function copyUserId() {

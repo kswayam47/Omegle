@@ -7,12 +7,13 @@ const path = require("path");
 const http = require("http")
 const server = http.createServer(app);
 const socketIO = require("socket.io");
-const io = socketIO(server);
 const mongoose = require('mongoose');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const User = require('./models/User');
 const Relation = require('./models/Relation');
+const initFriendSocket = require('./socket/friendSocket');
+const cors = require('cors');
 
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/omegle', {
@@ -33,18 +34,49 @@ const sessionMiddleware = session({
     }
 });
 
+// Enable CORS
+app.use(cors({
+    origin: 'http://localhost:5000',
+    credentials: true
+}));    
+
 app.use(sessionMiddleware);
 
 // Convert a connect middleware to a Socket.IO middleware
 const wrap = middleware => (socket, next) => middleware(socket.request, {}, next);
+
+// Initialize main socket server
+const io = socketIO(server, {
+    cors: {
+        origin: "http://localhost:5000",
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
+
+// Initialize friend socket server
+const friendIo = socketIO(server, {
+    path: '/friend-socket',
+    cors: {
+        origin: "http://localhost:5000",
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
+
+// Use session middleware for both socket servers
 io.use(wrap(sessionMiddleware));
+friendIo.use(wrap(sessionMiddleware));
+
+// Initialize friend socket handlers
+initFriendSocket(friendIo);
 
 const PRIVATE_ROOM_ID = 'rkgjtnnigot';
 const PRIVATE_ROOM_PIN = '1234'; // You should change this to your desired PIN
 let waitingusers = [];
 let activeRooms = {}; // Track active rooms and their participants
 
-// Socket.io connection handling
+// Socket.io connection handling for random chat
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -310,6 +342,6 @@ app.use(express.static(path.join(__dirname,'public')));
 app.use("/",indexrouter);
 app.use("/auth",authRouter);
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 server.listen(port);
