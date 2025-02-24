@@ -20,11 +20,36 @@ function initFriendSocket(io) {
             }
             userSockets.get(uniqueId).add(socket.id);
 
-            // Broadcast online status
-            io.emit('friendStatus', {
+            // Get all online users and send status to the newly connected user
+            onlineUsers.forEach(onlineUserId => {
+                if (onlineUserId !== uniqueId) {
+                    socket.emit('friendStatus', {
+                        friendId: onlineUserId,
+                        isOnline: true
+                    });
+                }
+            });
+
+            // Broadcast online status to all other users
+            socket.broadcast.emit('friendStatus', {
                 friendId: uniqueId,
                 isOnline: true
             });
+        });
+
+        // Handle friend status updates
+        socket.on('friendStatus', async (data) => {
+            const { friendId } = data;
+            // When receiving a friend's status, send back your status to them
+            if (socket.uniqueId && userSockets.has(friendId)) {
+                const targetSockets = userSockets.get(friendId);
+                targetSockets.forEach(socketId => {
+                    io.to(socketId).emit('friendStatus', {
+                        friendId: socket.uniqueId,
+                        isOnline: true
+                    });
+                });
+            }
         });
 
         // Join private room
