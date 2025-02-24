@@ -1,11 +1,43 @@
 const express = require("express")
 const app = express();
 const indexrouter = require("./routes/index");
+const authRouter = require("./routes/auth");
 const path = require("path");
 const http = require("http")
 const server = http.createServer(app);
 const socketIO = require("socket.io");
 const io = socketIO(server);
+const mongoose = require('mongoose');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const User = require('./models/User');
+const Relation = require('./models/Relation');
+
+// Connect to MongoDB
+mongoose.connect('mongodb://localhost:27017/omegle', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
+
+// Session configuration
+const sessionMiddleware = session({
+    secret: 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: 'mongodb://localhost:27017/omegle'
+    }),
+    cookie: {
+        maxAge: 1000 * 60 * 60 * 24 // 24 hours
+    }
+});
+
+app.use(sessionMiddleware);
+
+// Convert a connect middleware to a Socket.IO middleware
+const wrap = middleware => (socket, next) => middleware(socket.request, {}, next);
+io.use(wrap(sessionMiddleware));
+
 const PRIVATE_ROOM_ID = 'rkgjtnnigot';
 const PRIVATE_ROOM_PIN = '1234'; // You should change this to your desired PIN
 let waitingusers = [];
@@ -68,6 +100,81 @@ io.on("connection", function(socket) {
         } else {
             socket.emit("roomFull", {
                 message: "Private room is currently full. Please try again later."
+            });
+        }
+    });
+
+    // Handle friend chat
+    socket.on("joinFriendChat", async function(data) {
+        const { friendId } = data;
+        
+        if (!socket.request.session.userId) {
+            socket.emit("error", {
+                message: "Please login first"
+            });
+            return;
+        }
+
+        // Check if users have a relation
+        const relation = await Relation.findOne({
+            $or: [
+                { user1Id: socket.request.session.userId, user2Id: friendId },
+                { user1Id: friendId, user2Id: socket.request.session.userId }
+            ]
+        });
+
+        if (!relation) {
+            socket.emit("error", {
+                message: "You need to be friends to start a private chat"
+            });
+            return;
+        }
+
+        const roomId = [socket.request.session.userId, friendId].sort().join('-');
+
+        // Leave any existing rooms first
+        socket.rooms.forEach(room => {
+            if (room !== socket.id) {
+                socket.leave(room);
+            }
+        });
+
+        // Remove from any active rooms
+        for (let existingRoomId in activeRooms) {
+            const index = activeRooms[existingRoomId].indexOf(socket.id);
+            if (index !== -1) {
+                activeRooms[existingRoomId].splice(index, 1);
+                if (activeRooms[existingRoomId].length === 0) {
+                    delete activeRooms[existingRoomId];
+                }
+            }
+        }
+
+        // Join or create friend chat room
+        if (!activeRooms[roomId]) {
+            activeRooms[roomId] = [socket.id];
+            socket.join(roomId);
+            socket.emit("waitingForPartner", {
+                roomId: roomId,
+                message: "Waiting for your friend to join..."
+            });
+        } else if (activeRooms[roomId].length < 2) {
+            socket.join(roomId);
+            activeRooms[roomId].push(socket.id);
+            
+            // Notify all users in the room
+            io.to(roomId).emit("privateRoomJoined", {
+                title: "Friend Chat Started",
+                message: "Your friend has joined the chat",
+                participants: activeRooms[roomId].length,
+                roomId: roomId
+            });
+
+            // Initialize the connection between peers
+            io.to(roomId).emit("joined", roomId);
+        } else {
+            socket.emit("roomFull", {
+                message: "This chat room is currently full"
             });
         }
     });
@@ -175,5 +282,6 @@ app.use(express.urlencoded({extended:true}));
 app.use(express.static(path.join(__dirname,"public")));
 
 app.use("/",indexrouter);
+app.use("/auth", authRouter);
 
 server.listen(3000);
