@@ -314,21 +314,7 @@
 
 <body class="flex flex-col h-dvh bg-gray-200">
     <%- include('partials/header') %>
-    
-    <!-- Friends List -->
-    <div id="friends-list">
-        <h3>Your Friends</h3>
-        <div id="user-id-display">
-            Your ID: <span id="current-user-id"></span>
-        </div>
-        <div id="friends-container">
-            <!-- Friends will be added here dynamically -->
-        </div>
-        <form id="add-friend-form">
-            <input type="text" id="friend-id" placeholder="Enter friend's ID" required>
-            <button type="submit">Add Friend</button>
-        </form>
-    </div>
+
 
     <div class="status-indicator">
         <div class="status-dot"></div>
@@ -399,64 +385,6 @@
         const socket = io();
         let currentUserId = '';
         
-        // Fetch and display friends list
-        async function loadFriends() {
-            try {
-                const response = await fetch('/auth/relations');
-                const data = await response.json();
-                if (data.success) {
-                    const friendsContainer = document.getElementById('friends-container');
-                    friendsContainer.innerHTML = '';
-                    
-                    data.friends.forEach(friend => {
-                        const friendDiv = document.createElement('div');
-                        friendDiv.className = 'friend-item';
-                        friendDiv.innerHTML = `
-                            <span>${friend.name}</span>
-                            <button onclick="startChatWithFriend('${friend.uniqueId}')">Chat</button>
-                        `;
-                        friendsContainer.appendChild(friendDiv);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading friends:', error);
-            }
-        }
-
-        // Add friend form submission
-        document.getElementById('add-friend-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const friendId = document.getElementById('friend-id').value;
-            
-            try {
-                const response = await fetch('/auth/add-relation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ referralId: friendId })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    alert('Friend added successfully!');
-                    loadFriends(); // Reload friends list
-                    document.getElementById('friend-id').value = '';
-                } else {
-                    alert(data.message);
-                }
-            } catch (error) {
-                alert('An error occurred. Please try again.');
-            }
-        });
-
-        // Start chat with friend
-        function startChatWithFriend(friendId) {
-            socket.emit('joinFriendChat', { friendId });
-        }
-
-        // Load friends list on page load
-        loadFriends();
 
         const chatform = document.querySelector("#chatform");
         const messagebox = document.querySelector("#messagebox");
