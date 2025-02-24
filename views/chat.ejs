@@ -416,11 +416,23 @@
         // Initially set to offline
         updateStatusIndicator(false);
 
-        socket.on("joined", function (roomname) {
-            room = roomname;
+        socket.on("joined", function(roomId) {
+            room = roomId;
             document.querySelector(".nobody").classList.add("hidden");
-            updateStatusIndicator(true); // Set status to online when both connected
+            updateStatusIndicator(true);
         })
+
+        socket.on("updatePartnerStatus", function(data) {
+            updateStatusIndicator(data.isOnline);
+            if (!data.isOnline) {
+                document.querySelector(".nobody").classList.remove("hidden");
+                messagecontainer.innerHTML = `
+                    <div class="text-zinc-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2/3 text-center nobody">
+                        bhagwaan kasam koi nahi hai yaha, ruko shaayad koi aajaye.
+                    </div>
+                `;
+            }
+        });
 
         socket.on("message", function (message) {
             receiveMessage(message);
@@ -667,9 +679,10 @@
                 hangup();
             }
 
-         
+            // Clear the room variable
             room = null;
 
+            // Automatically try to find a new partner
             socket.emit("joinroom");
         });
 

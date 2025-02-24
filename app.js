@@ -231,9 +231,17 @@ io.on('connection', (socket) => {
         if (waitingusers.length && waitingusers[0].id !== socket.id) {
             const partner = waitingusers.shift();
             const room = Math.random().toString(36).substring(7);
+            
+            // Join the room
             socket.join(room);
             io.sockets.sockets.get(partner.id)?.join(room);
+            
+            // Track active room participants
+            activeRooms[room] = [socket.id, partner.id];
+            
+            // Emit joined event and online status
             io.to(room).emit("joined", room);
+            io.to(room).emit("updatePartnerStatus", { isOnline: true });
         } else {
             waitingusers.push({
                 id: socket.id
@@ -245,13 +253,35 @@ io.on('connection', (socket) => {
         socket.to(data.room).emit("message", data.message);
     });
 
-    socket.on("disconnect", () => {
-        console.log('User disconnected:', socket.id);
+
+    socket.on("disconnect", function() {
+        // Remove from waiting list
         waitingusers = waitingusers.filter(user => user.id !== socket.id);
-        if (socket.userId) {
-            socket.leave(socket.userId);
+    
+        // Find and handle disconnection from active room
+        for (let roomId in activeRooms) {
+            if (activeRooms[roomId].includes(socket.id)) {
+                const otherUser = activeRooms[roomId].find(id => id !== socket.id);
+                if (otherUser) {
+                    // Notify other user about disconnection and status change
+                    io.to(otherUser).emit("partnerDisconnected");
+                    io.to(otherUser).emit("updatePartnerStatus", { isOnline: false });
+                }
+                // Delete the room entirely
+                delete activeRooms[roomId];
+                
+                // Force both users to leave the room
+                if (otherUser) {
+                    const otherSocket = io.sockets.sockets.get(otherUser);
+                    if (otherSocket) {
+                        otherSocket.leave(roomId);
+                    }
+                }
+                socket.leave(roomId);
+            }
         }
     });
+    
 
     // Original video call functionality
     socket.on("signalingMessage", function(data) {
