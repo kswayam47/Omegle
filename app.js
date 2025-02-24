@@ -2,6 +2,7 @@ const express = require("express")
 const app = express();
 const indexrouter = require("./routes/index");
 const authRouter = require("./routes/auth");
+const friendsRouter = require("./routes/friends");
 const path = require("path");
 const http = require("http")
 const server = http.createServer(app);
@@ -43,245 +44,242 @@ const PRIVATE_ROOM_PIN = '1234'; // You should change this to your desired PIN
 let waitingusers = [];
 let activeRooms = {}; // Track active rooms and their participants
 
-io.on("connection", function(socket) {
-    socket.on("joinPrivateRoom", function(data) {
-        const { pin } = data;
-        
-        if (pin !== PRIVATE_ROOM_PIN) {
-            socket.emit("wrongPin", {
-                message: "Incorrect PIN for private room"
-            });
-            return;
-        }
+// Socket.io connection handling
+io.on('connection', (socket) => {
+    console.log('User connected:', socket.id);
 
-        // Leave any existing rooms first
-        socket.rooms.forEach(room => {
-            if (room !== socket.id) {
-                socket.leave(room);
-            }
-        });
+    // Store user's socket id and session data
+    if (socket.request.session.userId) {
+        socket.userId = socket.request.session.userId;
+        socket.uniqueId = socket.request.session.uniqueId;
+        socket.userName = socket.request.session.name;
+        console.log('User authenticated:', socket.uniqueId);
+    }
 
-        // Remove from any active rooms
-        for (let roomId in activeRooms) {
-            const index = activeRooms[roomId].indexOf(socket.id);
-            if (index !== -1) {
-                activeRooms[roomId].splice(index, 1);
-                if (activeRooms[roomId].length === 0) {
-                    delete activeRooms[roomId];
-                }
-            }
-        }
-
-        // Remove from waiting users
-        waitingusers = waitingusers.filter(user => user.id !== socket.id);
-
-        // Join or create private room
-        if (!activeRooms[PRIVATE_ROOM_ID]) {
-            activeRooms[PRIVATE_ROOM_ID] = [socket.id];
-            socket.join(PRIVATE_ROOM_ID);
-            socket.emit("waitingForPartner", {
-                roomId: PRIVATE_ROOM_ID,
-                message: "Waiting for someone to join the private room..."
-            });
-        } else if (activeRooms[PRIVATE_ROOM_ID].length < 2) {
-            socket.join(PRIVATE_ROOM_ID);
-            activeRooms[PRIVATE_ROOM_ID].push(socket.id);
-            
-            // Notify all users in the room
-            io.to(PRIVATE_ROOM_ID).emit("privateRoomJoined", {
-                title: "Private Chat Started",
-                message: "A new user has joined the private chat room",
-                participants: activeRooms[PRIVATE_ROOM_ID].length,
-                roomId: PRIVATE_ROOM_ID
-            });
-
-            // Initialize the connection between peers
-            io.to(PRIVATE_ROOM_ID).emit("joined", PRIVATE_ROOM_ID);
-        } else {
-            socket.emit("roomFull", {
-                message: "Private room is currently full. Please try again later."
-            });
-        }
-    });
-
-    // Handle friend chat
-    socket.on("joinFriendChat", async function(data) {
-        const { friendId } = data;
-        
-        if (!socket.request.session.userId) {
-            socket.emit("error", {
-                message: "Please login first"
-            });
-            return;
-        }
-
-        // Check if users have a relation
-        const relation = await Relation.findOne({
-            $or: [
-                { user1Id: socket.request.session.userId, user2Id: friendId },
-                { user1Id: friendId, user2Id: socket.request.session.userId }
-            ]
-        });
-
-        if (!relation) {
-            socket.emit("error", {
-                message: "You need to be friends to start a private chat"
-            });
-            return;
-        }
-
-        const roomId = [socket.request.session.userId, friendId].sort().join('-');
-
-        // Leave any existing rooms first
-        socket.rooms.forEach(room => {
-            if (room !== socket.id) {
-                socket.leave(room);
-            }
-        });
-
-        // Remove from any active rooms
-        for (let existingRoomId in activeRooms) {
-            const index = activeRooms[existingRoomId].indexOf(socket.id);
-            if (index !== -1) {
-                activeRooms[existingRoomId].splice(index, 1);
-                if (activeRooms[existingRoomId].length === 0) {
-                    delete activeRooms[existingRoomId];
-                }
-            }
-        }
-
-        // Join or create friend chat room
-        if (!activeRooms[roomId]) {
-            activeRooms[roomId] = [socket.id];
-            socket.join(roomId);
-            socket.emit("waitingForPartner", {
-                roomId: roomId,
-                message: "Waiting for your friend to join..."
-            });
-        } else if (activeRooms[roomId].length < 2) {
-            socket.join(roomId);
-            activeRooms[roomId].push(socket.id);
-            
-            // Notify all users in the room
-            io.to(roomId).emit("privateRoomJoined", {
-                title: "Friend Chat Started",
-                message: "Your friend has joined the chat",
-                participants: activeRooms[roomId].length,
-                roomId: roomId
-            });
-
-            // Initialize the connection between peers
-            io.to(roomId).emit("joined", roomId);
-        } else {
-            socket.emit("roomFull", {
-                message: "This chat room is currently full"
-            });
-        }
-    });
-
-    socket.on("joinroom", function(customRoomId = null) {
-        // Don't allow joining regular rooms if user is in private room
-        if (socket.rooms.has(PRIVATE_ROOM_ID)) {
-            return;
-        }
-
-        // Remove user from any existing room first
-        for (let roomId in activeRooms) {
-            const index = activeRooms[roomId].indexOf(socket.id);
-            if (index !== -1) {
-                activeRooms[roomId].splice(index, 1);
-                if (activeRooms[roomId].length === 0) {
-                    delete activeRooms[roomId];
-                }
-            }
-        }
-
-        if (customRoomId) {
-            // Don't allow joining the private room ID through this method
-            if (customRoomId === PRIVATE_ROOM_ID) {
-                socket.emit("error", {
-                    message: "Please use the private room join button to access this room"
-                });
+    // Handle friend requests
+    socket.on('sendFriendRequest', async (data) => {
+        try {
+            if (!socket.userId) {
+                socket.emit('error', { message: 'You must be logged in to send friend requests' });
                 return;
             }
 
-            if (activeRooms[customRoomId] && activeRooms[customRoomId].length < 2) {
-                socket.join(customRoomId);
-                activeRooms[customRoomId].push(socket.id);
-                if (activeRooms[customRoomId].length === 2) {
-                    io.to(customRoomId).emit("joined", customRoomId);
-                }
-            } else if (!activeRooms[customRoomId]) {
-                socket.join(customRoomId);
-                activeRooms[customRoomId] = [socket.id];
-                socket.emit("waitingForPartner", customRoomId);
-            } else {
-                socket.emit("roomFull");
+            const sender = await User.findById(socket.userId);
+            if (!sender) {
+                socket.emit('error', { message: 'Sender not found' });
+                return;
             }
+
+            const receiver = await User.findOne({ uniqueId: data.to });
+            if (!receiver) {
+                socket.emit('error', { message: 'User not found with that ID' });
+                return;
+            }
+
+            if (sender.uniqueId === receiver.uniqueId) {
+                socket.emit('error', { message: 'You cannot send a friend request to yourself' });
+                return;
+            }
+
+            // Check if already friends
+            const existingRelation = await Relation.findOne({
+                $or: [
+                    { user1Id: sender.uniqueId, user2Id: receiver.uniqueId },
+                    { user1Id: receiver.uniqueId, user2Id: sender.uniqueId }
+                ]
+            });
+
+            if (existingRelation) {
+                socket.emit('error', { message: 'You are already friends with this user' });
+                return;
+            }
+
+            // Send friend request to receiver
+            const connectedSockets = await io.fetchSockets();
+            const receiverSocket = connectedSockets.find(s => s.uniqueId === receiver.uniqueId);
+            
+            if (receiverSocket) {
+                receiverSocket.emit('friendRequest', {
+                    from: sender.uniqueId,
+                    name: sender.name
+                });
+                console.log('Friend request sent to:', receiver.uniqueId);
+            } else {
+                socket.emit('error', { message: 'User is currently offline' });
+            }
+        } catch (error) {
+            console.error('Send friend request error:', error);
+            socket.emit('error', { message: 'Failed to send friend request' });
+        }
+    });
+
+    socket.on('acceptFriendRequest', async (data) => {
+        try {
+            if (!socket.userId) {
+                socket.emit('error', { message: 'You must be logged in to accept friend requests' });
+                return;
+            }
+
+            const receiver = await User.findById(socket.userId);
+            const sender = await User.findOne({ uniqueId: data.from });
+
+            if (!sender || !receiver) {
+                socket.emit('error', { message: 'User not found' });
+                return;
+            }
+
+            // Check if already friends
+            const existingRelation = await Relation.findOne({
+                $or: [
+                    { user1Id: sender.uniqueId, user2Id: receiver.uniqueId },
+                    { user1Id: receiver.uniqueId, user2Id: sender.uniqueId }
+                ]
+            });
+
+            if (existingRelation) {
+                socket.emit('error', { message: 'Already friends' });
+                return;
+            }
+
+            // Create new relation
+            await Relation.create({
+                user1Id: sender.uniqueId,
+                user2Id: receiver.uniqueId
+            });
+
+            // Notify sender
+            const connectedSockets = await io.fetchSockets();
+            const senderSocket = connectedSockets.find(s => s.uniqueId === sender.uniqueId);
+            
+            if (senderSocket) {
+                senderSocket.emit('friendRequestAccepted', {
+                    name: receiver.name
+                });
+            }
+            console.log('Friend request accepted:', sender.uniqueId, receiver.uniqueId);
+        } catch (error) {
+            console.error('Accept friend request error:', error);
+            socket.emit('error', { message: 'Failed to accept friend request' });
+        }
+    });
+
+    socket.on('rejectFriendRequest', async (data) => {
+        try {
+            if (!socket.userId) {
+                socket.emit('error', { message: 'You must be logged in to reject friend requests' });
+                return;
+            }
+
+            const receiver = await User.findById(socket.userId);
+            const sender = await User.findOne({ uniqueId: data.from });
+
+            if (!sender || !receiver) {
+                socket.emit('error', { message: 'User not found' });
+                return;
+            }
+
+            // Notify sender
+            const connectedSockets = await io.fetchSockets();
+            const senderSocket = connectedSockets.find(s => s.uniqueId === sender.uniqueId);
+            
+            if (senderSocket) {
+                senderSocket.emit('friendRequestRejected', {
+                    name: receiver.name
+                });
+            }
+            console.log('Friend request rejected:', sender.uniqueId, receiver.uniqueId);
+        } catch (error) {
+            console.error('Reject friend request error:', error);
+            socket.emit('error', { message: 'Failed to reject friend request' });
+        }
+    });
+
+    // Store user's socket id for friend system
+    socket.on('storeUserId', (userId) => {
+        socket.userId = userId;
+        socket.join(userId); // Join a room with their userId
+    });
+
+    // Handle private room for friend chat
+    socket.on('joinPrivateRoom', async (data) => {
+        const { friendId } = data;
+        const userId = socket.userId;
+        if (userId) {
+            const roomId = [userId, friendId].sort().join('-');
+            socket.join(roomId);
+            io.to(roomId).emit('userJoinedRoom', { roomId, userId: socket.userId });
+        }
+    });
+
+    // Handle private messages between friends
+    socket.on('privateMessage', (data) => {
+        const { roomId, message } = data;
+        io.to(roomId).emit('privateMessage', {
+            message,
+            userId: socket.userId,
+            timestamp: new Date()
+        });
+    });
+
+    // Original random chat functionality
+    socket.on("joinroom", function(roomId) {
+        if (roomId) {
+            socket.join(roomId);
             return;
         }
-
-        // Handle random room joining
-        if (waitingusers.length > 0) {
+        
+        if (waitingusers.length && waitingusers[0].id !== socket.id) {
             const partner = waitingusers.shift();
-            const roomId = Math.random().toString(36).substring(7);
-            
-            socket.join(roomId);
-            partner.join(roomId);
-            
-            activeRooms[roomId] = [socket.id, partner.id];
-            io.to(roomId).emit("joined", roomId);
+            const room = Math.random().toString(36).substring(7);
+            socket.join(room);
+            io.sockets.sockets.get(partner.id)?.join(room);
+            io.to(room).emit("joined", room);
         } else {
-            waitingusers.push(socket);
-            socket.emit("waitingForPartner");
+            waitingusers.push({
+                id: socket.id
+            });
         }
     });
 
-    socket.on("disconnect", function() {
-        // Remove from waiting list
+    socket.on("message", function(data) {
+        socket.to(data.room).emit("message", data.message);
+    });
+
+    socket.on("disconnect", () => {
+        console.log('User disconnected:', socket.id);
         waitingusers = waitingusers.filter(user => user.id !== socket.id);
-
-        // Remove from active rooms and notify remaining users
-        for (let roomId in activeRooms) {
-            const index = activeRooms[roomId].indexOf(socket.id);
-            if (index !== -1) {
-                activeRooms[roomId].splice(index, 1);
-                if (activeRooms[roomId].length === 0) {
-                    delete activeRooms[roomId];
-                } else {
-                    // Notify remaining users about disconnection
-                    io.to(roomId).emit("partnerDisconnected");
-                }
-            }
+        if (socket.userId) {
+            socket.leave(socket.userId);
         }
     });
 
-    socket.on("message",function(data){
-        socket.broadcast.to(data.room).emit("message",data.message);
-    })
-
-    socket.on("signalingMessage",function(data){
-        socket.broadcast.to(data.room).emit("signalingMessage",data.message);
+    // Original video call functionality
+    socket.on("signalingMessage", function(data) {
+        socket.to(data.room).emit("signalingMessage", data.message);
     });
-    socket.on("startVideoCall",function({room}){
-        socket.broadcast.to(room).emit("incomingCall");
-        socket.emit("callInitiated");
-    })
-    socket.on("acceptCall",function(room){
-        socket.broadcast.to(room).emit("callAccepted")
 
-    })
-    socket.on("rejectCall",function({room}){
-        socket.broadcast.to(room).emit("callRejected")
-    })
-})
+    socket.on("startVideoCall", function(data) {
+        socket.to(data.room).emit("incomingCall");
+    });
+
+    socket.on("acceptCall", function(data) {
+        socket.to(data.room).emit("callAccepted");
+    });
+
+    socket.on("rejectCall", function(data) {
+        socket.to(data.room).emit("callRejected");
+    });
+});
 
 app.set("view engine","ejs");
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
-app.use(express.static(path.join(__dirname,"public")));
+app.use(express.static(path.join(__dirname,'public')));
 
+// Use routers
 app.use("/",indexrouter);
-app.use("/auth", authRouter);
+app.use("/auth",authRouter);
 
-server.listen(3000);
+const port = process.env.PORT || 3000;
+
+server.listen(port);

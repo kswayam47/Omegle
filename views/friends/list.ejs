@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Friends List</title>
+    <link href="/css/style.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .friend-list {
+            margin-top: 20px;
+        }
+        .friend-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .friend-request-form {
+            margin-top: 20px;
+        }
+        .friend-request-form input {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 250px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #4361ee;
+            color: white;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .pending-requests {
+            margin-top: 20px;
+        }
+        .user-id-display {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .user-id-display code {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <%- include('../partials/header') %>
+    
+    <div class="container">
+        <div class="card">
+            <h2>Your Friend ID</h2>
+            <div class="user-id-display">
+                Share this ID with friends: <code><%= userId %></code>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Add Friend</h2>
+            <div class="friend-request-form">
+                <form id="friendRequestForm">
+                    <input type="text" id="friendId" placeholder="Enter friend's ID" required>
+                    <button type="submit" class="btn btn-primary">Send Friend Request</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Friends List</h2>
+            <div class="friend-list" id="friendsList">
+                <!-- Friends will be populated here -->
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Pending Requests</h2>
+            <div class="pending-requests" id="pendingRequests">
+                <!-- Pending requests will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const userId = '<%= userId %>';
+
+        // Connect to socket with userId
+        socket.emit('storeUserId', userId);
+
+        // Handle friend request form submission
+        document.getElementById('friendRequestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const friendId = document.getElementById('friendId').value;
+            
+            try {
+                const response = await fetch('/friends/request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ friendId })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Friend request sent successfully!');
+                    document.getElementById('friendId').value = '';
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to send friend request');
+            }
+        });
+
+        // Listen for incoming friend requests
+        socket.on('friendRequest', (data) => {
+            const requestsDiv = document.getElementById('pendingRequests');
+            const requestElement = document.createElement('div');
+            requestElement.className = 'friend-item';
+            requestElement.innerHTML = `
+                <span>Friend request from: ${data.fromUserId}</span>
+                <div>
+                    <button onclick="acceptFriendRequest('${data.fromUserId}')" class="btn btn-success">Accept</button>
+                    <button onclick="rejectFriendRequest('${data.fromUserId}')" class="btn btn-danger">Reject</button>
+                </div>
+            `;
+            requestsDiv.appendChild(requestElement);
+        });
+
+        // Function to accept friend request
+        async function acceptFriendRequest(fromUserId) {
+            try {
+                const response = await fetch('/friends/accept', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ fromUserId })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Friend request accepted!');
+                    loadFriends();
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to accept friend request');
+            }
+        }
+
+        // Load friends list
+        async function loadFriends() {
+            try {
+                const response = await fetch('/friends/list');
+                const data = await response.json();
+                const friendsList = document.getElementById('friendsList');
+                friendsList.innerHTML = '';
+                
+                if (data.friends.length === 0) {
+                    friendsList.innerHTML = '<p>No friends yet. Add some friends using their ID!</p>';
+                    return;
+                }
+                
+                data.friends.forEach(friend => {
+                    const friendElement = document.createElement('div');
+                    friendElement.className = 'friend-item';
+                    friendElement.innerHTML = `
+                        <span>${friend.username} (${friend.uniqueId})</span>
+                        <button onclick="startChat('${friend.uniqueId}')" class="btn btn-primary">Chat</button>
+                    `;
+                    friendsList.appendChild(friendElement);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // Function to start chat with a friend
+        function startChat(friendId) {
+            window.location.href = `/friends/chat/${friendId}`;
+        }
+
+        // Load friends when page loads
+        loadFriends();
+
+        // Handle friend request accepted notification
+        socket.on('friendRequestAccepted', (data) => {
+            loadFriends();
+        });
+    </script>
+</body>
+</html>

@@ -17,13 +17,22 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
         }
+        .error-message {
+            color: #dc2626;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
     <div class="glass-effect p-8 rounded-2xl w-full max-w-md">
         <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Login</h1>
         
-        <form id="login-form" class="space-y-4">
+        <% if (typeof error !== 'undefined') { %>
+            <div class="error-message mb-4 text-center"><%= error %></div>
+        <% } %>
+
+        <form id="login-form" action="/auth/login" method="POST" class="space-y-4">
             <div>
                 <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
                 <input type="text" id="username" name="username" required
@@ -51,34 +60,5 @@
             </p>
         </div>
     </div>
-
-    <script>
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            
-            try {
-                const response = await fetch('/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: formData.get('username'),
-                        password: formData.get('password')
-                    })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    window.location.href = '/auth/chat';
-                } else {
-                    alert(data.message);
-                }
-            } catch (error) {
-                alert('An error occurred. Please try again.');
-            }
-        });
-    </script>
 </body>
 </html>

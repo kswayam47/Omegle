@@ -27,28 +27,26 @@ router.get('/chat', (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
-        
-        // Find user
         const user = await User.findOne({ username });
+
         if (!user) {
-            return res.json({ success: false, message: 'User not found' });
+            return res.render('login', { error: 'Invalid username or password' });
         }
 
-        // Check password
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
-            return res.json({ success: false, message: 'Invalid password' });
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.render('login', { error: 'Invalid username or password' });
         }
 
-        // Set user session
-        req.session.userId = user.uniqueId;
+        req.session.userId = user._id;
+        req.session.uniqueId = user.uniqueId;
+        req.session.username = user.username;
+        req.session.name = user.name;
         
-        res.json({
-            success: true,
-            uniqueId: user.uniqueId
-        });
+        res.redirect('/auth/dashboard');
     } catch (error) {
-        res.json({ success: false, message: 'An error occurred' });
+        console.error('Login error:', error);
+        res.render('login', { error: 'An error occurred. Please try again.' });
     }
 });
 
@@ -158,6 +156,36 @@ router.get('/relations', async (req, res) => {
         });
     } catch (error) {
         res.json({ success: false, message: 'An error occurred' });
+    }
+});
+
+// Add dashboard route
+router.get('/dashboard', async (req, res) => {
+    if (!req.session.userId) {
+        return res.redirect('/auth/login');
+    }
+
+    try {
+        const user = await User.findById(req.session.userId);
+        const relations = await Relation.find({
+            $or: [
+                { user1Id: user.uniqueId },
+                { user2Id: user.uniqueId }
+            ]
+        });
+
+        const friendIds = relations.map(rel => 
+            rel.user1Id === user.uniqueId ? rel.user2Id : rel.user1Id
+        );
+
+        const friends = await User.find({
+            uniqueId: { $in: friendIds }
+        }).select('name uniqueId');
+
+        res.render('dashboard', { user, friends });
+    } catch (error) {
+        console.error('Dashboard error:', error);
+        res.redirect('/auth/login');
     }
 });
 
