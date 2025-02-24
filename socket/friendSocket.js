@@ -76,25 +76,12 @@ function initFriendSocket(io) {
             socket.emit('userJoinedRoom', { roomId });
         });
 
-        // Handle private messages
-        socket.on('privateMessage', (data) => {
-            const { roomId, message } = data;
-            if (!roomId || !message) return;
-
-            const room = activeRooms.get(roomId);
-            if (!room) return;
-
-            room.messages.push({
-                userId: socket.uniqueId,
-                message,
-                timestamp: Date.now()
-            });
-
-            // Send to all OTHER sockets in the room
-            socket.broadcast.to(roomId).emit('privateMessage', {
-                userId: socket.uniqueId,
-                message
-            });
+        // Handle messages
+        socket.on('message', (message) => {
+            if (!socket.currentRoom || !message) return;
+            
+            // Broadcast the message to all users in the room except the sender
+            socket.broadcast.to(socket.currentRoom).emit('message', message);
         });
 
         // Video call signaling

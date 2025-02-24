@@ -39,15 +39,15 @@
                     <div id="message-container" class="flex-1 overflow-y-auto space-y-4 mb-4">
                         <!-- Messages will be added here -->
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <form id="chatform" class="flex items-center space-x-2">
                         <input type="text" id="messagebox" 
                             class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Type your message...">
-                        <button onclick="sendMessage()" 
+                        <button type="submit" 
                             class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
                             <i class="fas fa-paper-plane"></i>
                         </button>
-                    </div>
+                    </form>
                 </div>
 
                 <!-- Video Call Area (hidden by default) -->
@@ -115,38 +115,56 @@
             socket.emit('joinPrivateRoom', { friendId });
         });
 
-        // Handle private messages
-        socket.on('privateMessage', (data) => {
-            const { userId, message } = data;
-            console.log('Received message:', { from: userId, message });
-            const messageContainer = document.getElementById('message-container');
-            const messageDiv = document.createElement('div');
-            messageDiv.className = userId === myUniqueId ? 
-                'bg-blue-500 text-white ml-auto rounded-lg p-3 max-w-[70%] mb-2' : 
-                'bg-gray-100 mr-auto rounded-lg p-3 max-w-[70%] mb-2';
-            messageDiv.textContent = message;
-            messageContainer.appendChild(messageDiv);
-            messageContainer.scrollTop = messageContainer.scrollHeight;
+        // Handle messages
+        socket.on('message', (message) => {
+            console.log('Received message:', message);
+            receiveMessage(message);
         });
 
-        // Send message function
-        function sendMessage() {
-            const messageInput = document.getElementById('messagebox');
-            const message = messageInput.value.trim();
+        const chatform = document.getElementById('chatform');
+        const messagebox = document.getElementById('messagebox');
+
+        chatform.addEventListener("submit", function (event) {
+            event.preventDefault();
+            const message = messagebox.value.trim();
             if (message) {
-                const roomId = [myUniqueId, friendId].sort().join('-');
-                console.log('Sending message:', { to: friendId, message, roomId });
-                socket.emit('privateMessage', { roomId, message });
-                messageInput.value = '';
+                socket.emit('message', message);
+                attachMessage(message);
+                messagebox.value = "";
             }
+        });
+
+        function attachMessage(message) {
+            const userMessageContainer = document.createElement('div');
+            userMessageContainer.classList.add('flex', 'my-2', 'justify-end');
+
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.classList.add('bg-blue-600', 'text-white', 'p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+
+            const userMessageText = document.createElement('p');
+            userMessageText.textContent = message;
+
+            userMessageDiv.appendChild(userMessageText);
+            userMessageContainer.appendChild(userMessageDiv);
+            document.getElementById('message-container').appendChild(userMessageContainer);
+            document.querySelector("#message-container").scrollTop = document.querySelector("#message-container").scrollHeight;
         }
 
-        // Handle enter key
-        document.getElementById('messagebox').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
+        function receiveMessage(message) {
+            const messageContainer = document.createElement('div');
+            messageContainer.classList.add('flex', 'my-2', 'justify-start');
+
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('bg-gray-100', 'text-gray-800', 'p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+
+            const messageText = document.createElement('p');
+            messageText.textContent = message;
+
+            messageDiv.appendChild(messageText);
+            messageContainer.appendChild(messageDiv);
+            document.getElementById('message-container').appendChild(messageContainer);
+            document.querySelector("#message-container").scrollTop = document.querySelector("#message-container").scrollHeight;
+        }
 
         // Video call functionality
         const configuration = {
