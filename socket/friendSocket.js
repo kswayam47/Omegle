@@ -275,6 +275,7 @@ function initFriendSocket(io) {
         });
 
         socket.on('videoOffer', (data) => {
+            console.log('Relaying video offer from:', socket.uniqueId);
             const { target, sdp } = data;
             const targetSockets = userSockets.get(target);
             
@@ -289,6 +290,7 @@ function initFriendSocket(io) {
         });
 
         socket.on('videoAnswer', (data) => {
+            console.log('Relaying video answer from:', socket.uniqueId);
             const { target, sdp } = data;
             const targetSockets = userSockets.get(target);
             
@@ -303,6 +305,7 @@ function initFriendSocket(io) {
         });
 
         socket.on('iceCandidate', (data) => {
+            console.log('Relaying ICE candidate from:', socket.uniqueId);
             const { target, candidate } = data;
             const targetSockets = userSockets.get(target);
             
@@ -317,12 +320,15 @@ function initFriendSocket(io) {
         });
 
         socket.on('endCall', (data) => {
+            console.log('Relaying call end from:', socket.uniqueId);
             const { target } = data;
             const targetSockets = userSockets.get(target);
             
             if (targetSockets) {
                 targetSockets.forEach(socketId => {
-                    io.to(socketId).emit('callEnded');
+                    io.to(socketId).emit('callEnded', {
+                        from: socket.uniqueId
+                    });
                 });
             }
         });
