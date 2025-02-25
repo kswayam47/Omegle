@@ -40,6 +40,12 @@
                         <!-- Messages will be added here -->
                     </div>
                     <form id="chatform" class="flex items-center space-x-2">
+                        <input type="file" id="imageInput" accept="image/*" class="hidden">
+                        <button type="button" onclick="document.getElementById('imageInput').click()" class="p-2 hover:bg-gray-100 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </button>
                         <input type="text" id="messagebox" 
                             class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Type your message...">
@@ -117,8 +123,27 @@
 
         // Handle messages
         socket.on('message', (message) => {
-            console.log('Received message:', message);
             receiveMessage(message);
+        });
+
+        // Add image handling code
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const imageData = event.target.result;
+                socket.emit('message', `<img>${imageData}`);
+                attachMessage(`<img>${imageData}`);
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
         });
 
         const chatform = document.getElementById('chatform');
@@ -139,12 +164,20 @@
             userMessageContainer.classList.add('flex', 'my-2', 'justify-end');
 
             const userMessageDiv = document.createElement('div');
-            userMessageDiv.classList.add('bg-blue-600', 'text-white', 'p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+            
+            if (message.startsWith('<img>')) {
+                userMessageDiv.classList.add('bg-blue-600', 'p-2', 'rounded-lg', 'max-w-xs');
+                const img = document.createElement('img');
+                img.src = message.substring(5);
+                img.classList.add('max-w-full', 'rounded');
+                userMessageDiv.appendChild(img);
+            } else {
+                userMessageDiv.classList.add('bg-blue-600', 'text-white', 'p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+                const userMessageText = document.createElement('p');
+                userMessageText.textContent = message;
+                userMessageDiv.appendChild(userMessageText);
+            }
 
-            const userMessageText = document.createElement('p');
-            userMessageText.textContent = message;
-
-            userMessageDiv.appendChild(userMessageText);
             userMessageContainer.appendChild(userMessageDiv);
             document.getElementById('message-container').appendChild(userMessageContainer);
             document.querySelector("#message-container").scrollTop = document.querySelector("#message-container").scrollHeight;
@@ -155,12 +188,20 @@
             messageContainer.classList.add('flex', 'my-2', 'justify-start');
 
             const messageDiv = document.createElement('div');
-            messageDiv.classList.add('bg-gray-100', 'text-gray-800', 'p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+            
+            if (message.startsWith('<img>')) {
+                messageDiv.classList.add('bg-gray-100', 'p-2', 'rounded-lg', 'max-w-xs');
+                const img = document.createElement('img');
+                img.src = message.substring(5);
+                img.classList.add('max-w-full', 'rounded');
+                messageDiv.appendChild(img);
+            } else {
+                messageDiv.classList.add('bg-gray-100', 'text-gray-800', 'p-3', 'rounded-lg', 'max-w-xs', 'break-words');
+                const messageText = document.createElement('p');
+                messageText.textContent = message;
+                messageDiv.appendChild(messageText);
+            }
 
-            const messageText = document.createElement('p');
-            messageText.textContent = message;
-
-            messageDiv.appendChild(messageText);
             messageContainer.appendChild(messageDiv);
             document.getElementById('message-container').appendChild(messageContainer);
             document.querySelector("#message-container").scrollTop = document.querySelector("#message-container").scrollHeight;
