@@ -13,6 +13,14 @@ const messageSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    compressedImage: {
+        type: Buffer,
+        required: false
+    },
+    contentType: {
+        type: String,
+        required: false
+    },
     isRead: {
         type: Boolean,
         default: false

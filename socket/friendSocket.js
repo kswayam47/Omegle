@@ -1,11 +1,26 @@
 const User = require('../models/User');
 const Relation = require('../models/Relation');
 const Message = require('../models/Message');
+const sharp = require('sharp');
 
 function initFriendSocket(io) {
     const userSockets = new Map(); // uniqueId -> Set of socket IDs
     const onlineUsers = new Set();
     const activeRooms = new Map(); // roomId -> {users: Set, messages: Array}
+
+    // Helper function to extract base64 image data
+    const extractImageData = (message) => {
+        const match = message.match(/<img>data:([^;]+);base64,([^<]+)<\/img>/);
+        return match ? { contentType: match[1], data: match[2] } : null;
+    };
+
+    // Helper function to check file size (10MB limit)
+    const checkImageSize = (message) => {
+        const base64Data = message.replace(/^<img>data:[^;]+;base64,/, '').replace(/<\/img>$/, '');
+        const sizeInBytes = Buffer.from(base64Data, 'base64').length;
+        const sizeInMB = sizeInBytes / (1024 * 1024);
+        return sizeInMB <= 10;
+    };
 
     io.on('connection', async (socket) => {
         console.log('Friend socket connected:', socket.id);
@@ -86,43 +101,75 @@ function initFriendSocket(io) {
                 const roomUsers = Array.from(activeRooms.get(socket.currentRoom).users);
                 const recipientId = roomUsers.find(id => id !== socket.uniqueId);
 
-                // For images, send immediately before storing
+                // For images, first check size and send
                 if (message.startsWith('<img>')) {
+                    // Check size first
+                    if (!checkImageSize(message)) {
+                        socket.emit('error', 'Image size exceeds 10MB limit');
+                        return;
+                    }
+
+                    // Send image immediately
                     socket.broadcast.to(socket.currentRoom).emit('message', message);
+
+                    // After successful send, store in DB
+                    setTimeout(async () => {
+                        try {
+                            // Extract image data
+                            const base64Data = message.replace(/^<img>data:([^;]+);base64,/, '').replace(/<\/img>$/, '');
+                            const contentType = message.match(/^<img>data:([^;]+);base64,/)[1];
+                            
+                            // Compress image
+                            const imageBuffer = Buffer.from(base64Data, 'base64');
+                            const compressedImage = await sharp(imageBuffer)
+                                .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+                                .jpeg({ quality: 80 })
+                                .toBuffer();
+
+                            // Store in DB
+                            const newMessage = new Message({
+                                from: socket.uniqueId,
+                                to: recipientId,
+                                content: '<img>stored',
+                                compressedImage: compressedImage,
+                                contentType: contentType
+                            });
+                            await newMessage.save();
+                        } catch (err) {
+                            console.error('Error storing image:', err);
+                        }
+                    }, 1000); // Wait 1 second after sending before storing
+
+                } else {
+                    // For text messages, send immediately
+                    socket.broadcast.to(socket.currentRoom).emit('message', message);
+                    
+                    // Then store
+                    const newMessage = new Message({
+                        from: socket.uniqueId,
+                        to: recipientId,
+                        content: message,
+                        isRead: false
+                    });
+                    await newMessage.save();
                 }
 
-                // Store message in database
-                const newMessage = new Message({
-                    from: socket.uniqueId,
-                    to: recipientId,
-                    content: message.startsWith('<img>') ? '<img>stored' : message,
-                    isRead: false
-                });
-                await newMessage.save();
-
-                // Get sender's name
+                // Get sender's name and handle notifications
                 const sender = await User.findOne({ uniqueId: socket.uniqueId });
-                
-                // For text messages, broadcast after storing
-                if (!message.startsWith('<img>')) {
-                    socket.broadcast.to(socket.currentRoom).emit('message', message);
-                }
-                
-                // Send notification
                 if (userSockets.has(recipientId)) {
                     const recipientSockets = userSockets.get(recipientId);
-                    const notificationMsg = message.startsWith('<img>') ? '[Image]' : message;
-                    
                     recipientSockets.forEach(socketId => {
-                        io.to(socketId).emit('newMessage', {
-                            from: socket.uniqueId,
-                            senderName: sender.name,
-                            message: notificationMsg
-                        });
+                        if (!activeRooms.get(socket.currentRoom).users.has(recipientId)) {
+                            io.to(socketId).emit('notification', {
+                                message: `New message from ${sender.name}`,
+                                from: socket.uniqueId
+                            });
+                        }
                     });
                 }
             } catch (error) {
                 console.error('Error handling message:', error);
+                socket.emit('error', 'Failed to process message');
             }
         });
 

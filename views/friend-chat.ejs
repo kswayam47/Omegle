@@ -196,6 +196,58 @@
         const currentPort = window.location.port;
         const socketUrl = `${window.location.protocol}//${currentHost}${currentPort ? ':' + currentPort : ''}`;
 
+        // Load chat history when page loads
+        async function loadChatHistory() {
+            try {
+                const friendId = '<%= friend.uniqueId %>';
+                const response = await fetch(`/auth/chat-history/${friendId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const messageContainer = document.getElementById('message-container');
+                    messageContainer.innerHTML = ''; // Clear existing messages
+                    
+                    data.messages.forEach(msg => {
+                        const isOwnMessage = msg.from === '<%= user.uniqueId %>';
+                        const messageDiv = document.createElement('div');
+                        messageDiv.classList.add('flex', 'my-2', isOwnMessage ? 'justify-end' : 'justify-start');
+                        
+                        const messageContent = document.createElement('div');
+                        messageContent.classList.add(
+                            'max-w-[70%]',
+                            'break-words',
+                            'rounded-lg',
+                            'px-4',
+                            'py-2',
+                            isOwnMessage ? 'bg-blue-500' : 'bg-gray-300',
+                            isOwnMessage ? 'text-white' : 'text-black'
+                        );
+                        
+                        if (msg.content.startsWith('<img>')) {
+                            const img = document.createElement('img');
+                            img.src = msg.content.replace('<img>', '').replace('</img>', '');
+                            img.classList.add('max-w-full', 'rounded');
+                            img.style.maxHeight = '300px';
+                            messageContent.appendChild(img);
+                        } else {
+                            messageContent.textContent = msg.content;
+                        }
+                        
+                        messageDiv.appendChild(messageContent);
+                        messageContainer.appendChild(messageDiv);
+                    });
+                    
+                    // Scroll to bottom
+                    messageContainer.scrollTop = messageContainer.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+
+        // Load chat history when page loads
+        window.addEventListener('load', loadChatHistory);
+
         // Connect to socket
         const socket = io(socketUrl, {
             path: '/socket.io',

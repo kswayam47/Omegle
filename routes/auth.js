@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const { v4: uuidv4 } = require('uuid');
 const User = require('../models/User');
 const Relation = require('../models/Relation');
+const Message = require('../models/Message');
 
 // Render login page
 router.get('/login', (req, res) => {
@@ -193,6 +194,49 @@ router.get('/search-users', async (req, res) => {
     } catch (error) {
         console.error('Search users error:', error);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get chat history
+router.get('/chat-history/:friendId', async (req, res) => {
+    try {
+        if (!req.session.userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const { friendId } = req.params;
+        const userId = req.session.uniqueId;
+
+        // Find all messages between these users
+        const messages = await Message.find({
+            $or: [
+                { from: userId, to: friendId },
+                { from: friendId, to: userId }
+            ]
+        }).sort({ timestamp: 1 });
+
+        // Process messages to include image data if present
+        const processedMessages = messages.map(msg => {
+            if (msg.compressedImage) {
+                // Convert Buffer to base64 and create data URL
+                const base64Image = msg.compressedImage.toString('base64');
+                return {
+                    from: msg.from,
+                    content: `<img>data:${msg.contentType};base64,${base64Image}</img>`,
+                    timestamp: msg.timestamp
+                };
+            }
+            return {
+                from: msg.from,
+                content: msg.content,
+                timestamp: msg.timestamp
+            };
+        });
+
+        res.json({ success: true, messages: processedMessages });
+    } catch (error) {
+        console.error('Error fetching chat history:', error);
+        res.status(500).json({ error: 'Failed to fetch chat history' });
     }
 });
 
