@@ -286,6 +286,12 @@
                 const userMessageText = document.createElement('p');
                 userMessageText.textContent = message;
                 userMessageDiv.appendChild(userMessageText);
+                
+                // Add timestamp for text messages
+                const timestamp = document.createElement('div');
+                timestamp.classList.add('text-xs', 'text-blue-200', 'mt-1');
+                timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                userMessageDiv.appendChild(timestamp);
             }
 
             userMessageContainer.appendChild(userMessageDiv);
@@ -310,6 +316,12 @@
                 const messageText = document.createElement('p');
                 messageText.textContent = message;
                 messageDiv.appendChild(messageText);
+                
+                // Add timestamp for text messages
+                const timestamp = document.createElement('div');
+                timestamp.classList.add('text-xs', 'text-gray-500', 'mt-1');
+                timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                messageDiv.appendChild(timestamp);
             }
 
             messageContainer.appendChild(messageDiv);
@@ -596,6 +608,28 @@
                 document.getElementById('videoArea').classList.add('hidden');
                 document.getElementById('chatArea').classList.remove('hidden');
                 isInCall = false;
+            }
+        });
+
+        // Add online status handling without modifying existing code
+        socket.on('friendStatus', (data) => {
+            const statusElement = document.getElementById('status');
+            if (data.friendId === friendId) {
+                if (data.isOnline) {
+                    statusElement.textContent = 'Online';
+                    statusElement.classList.remove('text-gray-400');
+                    statusElement.classList.add('text-green-400');
+                } else {
+                    const lastSeen = new Date().toLocaleString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    statusElement.textContent = `Last seen ${lastSeen}`;
+                    statusElement.classList.remove('text-green-400');
+                    statusElement.classList.add('text-gray-400');
+                }
             }
         });
     </script>
