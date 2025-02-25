@@ -334,6 +334,20 @@
             messageContainer.scrollTop = messageContainer.scrollHeight;
         }
 
+        // Load previous messages
+        socket.emit('getMessages', { friendId: '<%= friend.uniqueId %>' });
+
+        socket.on('previousMessages', (messages) => {
+            messages.forEach(msg => {
+                if (msg.from === '<%= user.uniqueId %>') {
+                    attachMessage(msg.content);
+                } else {
+                    receiveMessage(msg.content);
+                }
+            });
+            scrollToBottom();
+        });
+
         // Video call functionality
         async function startCall() {
             try {

@@ -88,10 +88,29 @@
             border-radius: 8px;
             margin-bottom: 0.5rem;
             transition: all 0.2s;
+            position: relative;
         }
 
-        .friend-item:hover {
-            background: #e5e7eb;
+        .unread-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 9999px;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .unread-message {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 150px;
         }
 
         .friend-info {
@@ -198,12 +217,12 @@
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Your Friends</h3>
         <div id="friends-container">
             <% friends.forEach(function(friend) { %>
-                <div class="friend-item">
+                <div class="friend-item" data-friend-id="<%= friend.uniqueId %>">
                     <div class="friend-info">
                         <span class="friend-name"><%= friend.name %></span>
                         <span class="friend-username">@<%= friend.username %></span>
                     </div>
-                    <button class="chat-btn" onclick="startChatWithFriend('<%= friend.uniqueId %>')">
+                    <button class="chat-btn" onclick="openChat('<%= friend.uniqueId %>')">
                         Chat
                     </button>
                 </div>
@@ -242,6 +261,69 @@
         let remoteStream;
         let peerConnection;
         let currentUserId = '<%= user.uniqueId %>';
+
+        // Request unread messages on load
+        socket.emit('getUnreadMessages');
+
+        // Handle unread messages
+        socket.on('unreadMessages', (unreadInfo) => {
+            unreadInfo.forEach(info => {
+                const friendItem = document.querySelector(`[data-friend-id="${info.from}"]`);
+                if (friendItem) {
+                    // Remove existing badge if any
+                    const existingBadge = friendItem.querySelector('.unread-badge');
+                    if (existingBadge) {
+                        existingBadge.remove();
+                    }
+                    
+                    // Add unread badge if there are unread messages
+                    if (info.count > 0) {
+                        const badge = document.createElement('div');
+                        badge.classList.add('unread-badge');
+                        badge.textContent = info.count;
+                        friendItem.appendChild(badge);
+
+                        // Add last message preview
+                        const messagePreview = document.createElement('div');
+                        messagePreview.classList.add('unread-message');
+                        messagePreview.textContent = `New message: ${info.lastMessage}`;
+                        friendItem.querySelector('.friend-info').appendChild(messagePreview);
+                    }
+                }
+            });
+        });
+
+        // Handle new message notifications
+        socket.on('newMessage', (data) => {
+            const friendItem = document.querySelector(`[data-friend-id="${data.from}"]`);
+            if (friendItem) {
+                // Update or create badge
+                let badge = friendItem.querySelector('.unread-badge');
+                if (!badge) {
+                    badge = document.createElement('div');
+                    badge.classList.add('unread-badge');
+                    badge.textContent = '1';
+                    friendItem.appendChild(badge);
+                } else {
+                    badge.textContent = parseInt(badge.textContent) + 1;
+                }
+
+                // Update message preview
+                let messagePreview = friendItem.querySelector('.unread-message');
+                if (!messagePreview) {
+                    messagePreview = document.createElement('div');
+                    messagePreview.classList.add('unread-message');
+                    friendItem.querySelector('.friend-info').appendChild(messagePreview);
+                }
+                messagePreview.textContent = `New message: ${data.message}`;
+            }
+        });
+
+        // Mark messages as read when opening chat
+        function openChat(friendId) {
+            socket.emit('markMessagesAsRead', { fromUser: friendId });
+            window.location.href = `/friend-chat/${friendId}`;
+        }
 
         // Add friend form submission
         document.getElementById('add-friend-form').addEventListener('submit', async (e) => {

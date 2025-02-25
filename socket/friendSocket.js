@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Relation = require('../models/Relation');
+const Message = require('../models/Message');
 
 function initFriendSocket(io) {
     const userSockets = new Map(); // uniqueId -> Set of socket IDs
@@ -77,11 +78,102 @@ function initFriendSocket(io) {
         });
 
         // Handle messages
-        socket.on('message', (message) => {
+        socket.on('message', async (message) => {
             if (!socket.currentRoom || !message) return;
             
-            // Broadcast the message to all users in the room except the sender
-            socket.broadcast.to(socket.currentRoom).emit('message', message);
+            try {
+                // Store message in database
+                const newMessage = new Message({
+                    from: socket.uniqueId,
+                    to: message.to || Array.from(activeRooms.get(socket.currentRoom).users).find(id => id !== socket.uniqueId),
+                    content: message,
+                    isRead: false
+                });
+                await newMessage.save();
+
+                // Get sender's name for notification
+                const sender = await User.findOne({ uniqueId: socket.uniqueId });
+                
+                // Broadcast the message to all users in the room except the sender
+                socket.broadcast.to(socket.currentRoom).emit('message', message);
+                
+                // Send notification about new message
+                socket.broadcast.to(socket.currentRoom).emit('newMessage', {
+                    from: socket.uniqueId,
+                    senderName: sender.name,
+                    message: message
+                });
+            } catch (error) {
+                console.error('Error handling message:', error);
+            }
+        });
+
+        // Handle marking messages as read
+        socket.on('markMessagesAsRead', async (data) => {
+            try {
+                const { fromUser } = data;
+                await Message.updateMany(
+                    { from: fromUser, to: socket.uniqueId, isRead: false },
+                    { isRead: true }
+                );
+            } catch (error) {
+                console.error('Error marking messages as read:', error);
+            }
+        });
+
+        // Handle getting unread messages count
+        socket.on('getUnreadMessages', async () => {
+            try {
+                const unreadCounts = await Message.aggregate([
+                    {
+                        $match: {
+                            to: socket.uniqueId,
+                            isRead: false
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: '$from',
+                            count: { $sum: 1 },
+                            lastMessage: { $last: '$content' }
+                        }
+                    }
+                ]);
+
+                const unreadInfo = await Promise.all(unreadCounts.map(async (item) => {
+                    const sender = await User.findOne({ uniqueId: item._id });
+                    return {
+                        from: item._id,
+                        senderName: sender ? sender.name : 'Unknown',
+                        count: item.count,
+                        lastMessage: item.lastMessage
+                    };
+                }));
+
+                socket.emit('unreadMessages', unreadInfo);
+            } catch (error) {
+                console.error('Error getting unread messages:', error);
+            }
+        });
+
+        // Handle loading previous messages
+        socket.on('getMessages', async (data) => {
+            try {
+                const { friendId } = data;
+                if (!socket.uniqueId || !friendId) return;
+
+                // Get messages between the two users
+                const messages = await Message.find({
+                    $or: [
+                        { from: socket.uniqueId, to: friendId },
+                        { from: friendId, to: socket.uniqueId }
+                    ]
+                }).sort('timestamp');
+
+                socket.emit('previousMessages', messages);
+            } catch (error) {
+                console.error('Error getting previous messages:', error);
+            }
         });
 
         // Video call signaling
