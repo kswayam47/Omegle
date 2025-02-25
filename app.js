@@ -14,6 +14,7 @@ const User = require('./models/User');
 const Relation = require('./models/Relation');
 const initFriendSocket = require('./socket/friendSocket');
 const cors = require('cors');
+const { startMessageCleanup } = require('./utils/scheduler');
 
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/omegle', {
@@ -78,6 +79,9 @@ io.use(wrap(sessionMiddleware));
 
 // Initialize friend socket
 initFriendSocket(io);
+
+// Start message cleanup scheduler
+startMessageCleanup();
 
 const PRIVATE_ROOM_ID = 'rkgjtnnigot';
 const PRIVATE_ROOM_PIN = '1234'; // You should change this to your desired PIN

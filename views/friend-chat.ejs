@@ -233,7 +233,21 @@
 
         // Handle messages
         socket.on('message', (message) => {
+            console.log('Received message:', message);
             receiveMessage(message);
+        });
+
+        // Handle previous messages
+        socket.on('previousMessages', (messages) => {
+            console.log('Loading previous messages:', messages);
+            messages.forEach(msg => {
+                if (msg.from === myUniqueId) {
+                    attachMessage(msg.content);
+                } else {
+                    receiveMessage(msg.content);
+                }
+            });
+            scrollToBottom();
         });
 
         // Add image handling code
@@ -249,8 +263,10 @@
             const reader = new FileReader();
             reader.onload = function(event) {
                 const imageData = event.target.result;
-                socket.emit('message', `<img>${imageData}`);
-                attachMessage(`<img>${imageData}`);
+                console.log('Sending image');
+                const message = `<img>${imageData}`;
+                socket.emit('message', message);
+                attachMessage(message);
             };
             reader.readAsDataURL(file);
             e.target.value = '';
@@ -270,6 +286,7 @@
         });
 
         function attachMessage(message) {
+            console.log('Attaching message:', message.substring(0, 50) + '...');
             const userMessageContainer = document.createElement('div');
             userMessageContainer.classList.add('flex', 'my-2', 'justify-end');
 
@@ -287,7 +304,6 @@
                 userMessageText.textContent = message;
                 userMessageDiv.appendChild(userMessageText);
                 
-                // Add timestamp for text messages
                 const timestamp = document.createElement('div');
                 timestamp.classList.add('text-xs', 'text-blue-200', 'mt-1');
                 timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -300,6 +316,7 @@
         }
 
         function receiveMessage(message) {
+            console.log('Receiving message:', message.substring(0, 50) + '...');
             const messageContainer = document.createElement('div');
             messageContainer.classList.add('flex', 'my-2', 'justify-start');
 
@@ -317,7 +334,6 @@
                 messageText.textContent = message;
                 messageDiv.appendChild(messageText);
                 
-                // Add timestamp for text messages
                 const timestamp = document.createElement('div');
                 timestamp.classList.add('text-xs', 'text-gray-500', 'mt-1');
                 timestamp.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -336,17 +352,6 @@
 
         // Load previous messages
         socket.emit('getMessages', { friendId: '<%= friend.uniqueId %>' });
-
-        socket.on('previousMessages', (messages) => {
-            messages.forEach(msg => {
-                if (msg.from === '<%= user.uniqueId %>') {
-                    attachMessage(msg.content);
-                } else {
-                    receiveMessage(msg.content);
-                }
-            });
-            scrollToBottom();
-        });
 
         // Video call functionality
         async function startCall() {

@@ -82,27 +82,45 @@ function initFriendSocket(io) {
             if (!socket.currentRoom || !message) return;
             
             try {
+                // Get the recipient's ID from the room
+                const roomUsers = Array.from(activeRooms.get(socket.currentRoom).users);
+                const recipientId = roomUsers.find(id => id !== socket.uniqueId);
+
+                // For images, send immediately before storing
+                if (message.startsWith('<img>')) {
+                    socket.broadcast.to(socket.currentRoom).emit('message', message);
+                }
+
                 // Store message in database
                 const newMessage = new Message({
                     from: socket.uniqueId,
-                    to: message.to || Array.from(activeRooms.get(socket.currentRoom).users).find(id => id !== socket.uniqueId),
-                    content: message,
+                    to: recipientId,
+                    content: message.startsWith('<img>') ? '<img>stored' : message,
                     isRead: false
                 });
                 await newMessage.save();
 
-                // Get sender's name for notification
+                // Get sender's name
                 const sender = await User.findOne({ uniqueId: socket.uniqueId });
                 
-                // Broadcast the message to all users in the room except the sender
-                socket.broadcast.to(socket.currentRoom).emit('message', message);
+                // For text messages, broadcast after storing
+                if (!message.startsWith('<img>')) {
+                    socket.broadcast.to(socket.currentRoom).emit('message', message);
+                }
                 
-                // Send notification about new message
-                socket.broadcast.to(socket.currentRoom).emit('newMessage', {
-                    from: socket.uniqueId,
-                    senderName: sender.name,
-                    message: message
-                });
+                // Send notification
+                if (userSockets.has(recipientId)) {
+                    const recipientSockets = userSockets.get(recipientId);
+                    const notificationMsg = message.startsWith('<img>') ? '[Image]' : message;
+                    
+                    recipientSockets.forEach(socketId => {
+                        io.to(socketId).emit('newMessage', {
+                            from: socket.uniqueId,
+                            senderName: sender.name,
+                            message: notificationMsg
+                        });
+                    });
+                }
             } catch (error) {
                 console.error('Error handling message:', error);
             }
@@ -162,7 +180,6 @@ function initFriendSocket(io) {
                 const { friendId } = data;
                 if (!socket.uniqueId || !friendId) return;
 
-                // Get messages between the two users
                 const messages = await Message.find({
                     $or: [
                         { from: socket.uniqueId, to: friendId },
@@ -170,7 +187,13 @@ function initFriendSocket(io) {
                     ]
                 }).sort('timestamp');
 
-                socket.emit('previousMessages', messages);
+                // Filter out stored image placeholders
+                const filteredMessages = messages.map(msg => ({
+                    content: msg.content === '<img>stored' ? '' : msg.content,
+                    from: msg.from
+                })).filter(msg => msg.content !== '');
+
+                socket.emit('previousMessages', filteredMessages);
             } catch (error) {
                 console.error('Error getting previous messages:', error);
             }
