@@ -71,6 +71,18 @@
                         <p>Your ID: <strong id="userId"><%= user.uniqueId %></strong> 
                             <button class="btn btn-sm btn-outline-secondary" onclick="copyUserId()">Copy ID</button>
                         </p>
+                        
+                        <!-- Friend Search Section -->
+                        <div class="mb-4">
+                            <h4>Find Friends</h4>
+                            <div class="input-group mb-3">
+                                <input type="text" id="search-input" class="form-control" placeholder="Search users...">
+                            </div>
+                            <div id="search-results" class="list-group mb-4">
+                                <!-- Search results will be populated here -->
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label for="friendId" class="form-label">Enter Friend's ID:</label>
                             <input type="text" class="form-control" id="friendId">
@@ -107,7 +119,27 @@
     <!-- Notification -->
     <div class="notification" id="notification"></div>
 
+    <!-- Bio Card Modal -->
+    <div class="modal fade" id="bio-card-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">User Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="bio-card-content">
+                    <!-- Bio card content will be populated here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="send-friend-request">Send Friend Request</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Get the current hostname and port
         const currentHost = window.location.hostname;
@@ -246,6 +278,108 @@
             setTimeout(() => {
                 notification.style.display = 'none';
             }, 3000);
+        }
+
+        // Friend search functionality
+        let selectedUser = null;
+        const bioModal = new bootstrap.Modal(document.getElementById('bio-card-modal'));
+
+        document.getElementById('search-input').addEventListener('input', debounce(async (e) => {
+            const searchQuery = e.target.value;
+            try {
+                const response = await fetch(`/auth/search-users?q=${encodeURIComponent(searchQuery)}`);
+                const users = await response.json();
+                displaySearchResults(users);
+            } catch (error) {
+                console.error('Error searching users:', error);
+                showNotification('Error searching users', 'error');
+            }
+        }, 300));
+
+        function displaySearchResults(users) {
+            const searchResults = document.getElementById('search-results');
+            searchResults.innerHTML = '';
+
+            users.forEach(user => {
+                const userCard = document.createElement('div');
+                userCard.className = 'list-group-item list-group-item-action';
+                userCard.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">${user.name}</h6>
+                            <small class="text-muted">@${user.username}</small>
+                        </div>
+                        <button class="btn btn-outline-primary btn-sm view-profile">View Profile</button>
+                    </div>
+                `;
+
+                userCard.querySelector('.view-profile').addEventListener('click', () => {
+                    showBioCard(user);
+                });
+
+                searchResults.appendChild(userCard);
+            });
+        }
+
+        function showBioCard(user) {
+            selectedUser = user;
+            const bioContent = document.getElementById('bio-card-content');
+            
+            bioContent.innerHTML = `
+                <div class="mb-3">
+                    <h5>${user.name}</h5>
+                    <p class="text-muted">@${user.username}</p>
+                </div>
+                <div class="mb-3">
+                    <strong>Bio:</strong>
+                    <p>${user.bio || "No bio available"}</p>
+                </div>
+                <div>
+                    <strong>Member since:</strong>
+                    <p>${new Date(user.createdAt).toLocaleDateString()}</p>
+                </div>
+            `;
+            
+            bioModal.show();
+        }
+
+        document.getElementById('send-friend-request').addEventListener('click', async () => {
+            if (!selectedUser) return;
+            
+            try {
+                const response = await fetch('/friends/send-request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        receiverId: selectedUser.uniqueId
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showNotification('Friend request sent successfully!', 'success');
+                    bioModal.hide();
+                } else {
+                    showNotification(result.error || 'Failed to send friend request', 'error');
+                }
+            } catch (error) {
+                console.error('Error sending friend request:', error);
+                showNotification('Failed to send friend request', 'error');
+            }
+        });
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
         }
     </script>
 </body>

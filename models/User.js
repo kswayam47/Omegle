@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    bio: {
+        type: String,
+        default: "Hey there! I'm using Omegle."
+    },
     relations: {
         type: [String],
         default: []

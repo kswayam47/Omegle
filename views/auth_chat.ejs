@@ -219,6 +219,31 @@
             </div>
         </div>
 
+        <!-- Friend Search Section -->
+        <div class="mt-6 p-4 bg-white rounded-lg shadow-md">
+            <h4 class="text-lg font-semibold mb-4">Find Friends</h4>
+            <div class="mb-4">
+                <input type="text" id="search-input" placeholder="Search users..." 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div id="search-results" class="space-y-4">
+                <!-- Search results will be populated here -->
+            </div>
+        </div>
+
+        <!-- Bio Card Modal -->
+        <div id="bio-card-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+                <div id="bio-card-content">
+                    <!-- Bio card content will be populated here -->
+                </div>
+                <div class="mt-4 flex justify-end space-x-2">
+                    <button id="close-bio-card" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Close</button>
+                    <button id="send-friend-request" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Send Friend Request</button>
+                </div>
+            </div>
+        </div>
+
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Your Friends</h3>
         <div id="friends-container">
             <% friends.forEach(function(friend) { %>
@@ -472,7 +497,105 @@
         });
 
         init();
+
+        // Friend search functionality
+        let selectedUser = null;
+
+        document.getElementById('search-input').addEventListener('input', debounce(async (e) => {
+            const searchQuery = e.target.value;
+            try {
+                const response = await fetch(`/auth/search-users?q=${encodeURIComponent(searchQuery)}`);
+                const users = await response.json();
+                displaySearchResults(users);
+            } catch (error) {
+                console.error('Error searching users:', error);
+            }
+        }, 300));
+
+        function displaySearchResults(users) {
+            const searchResults = document.getElementById('search-results');
+            searchResults.innerHTML = '';
+
+            users.forEach(user => {
+                const userCard = document.createElement('div');
+                userCard.className = 'p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer';
+                userCard.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h5 class="font-semibold">${user.name}</h5>
+                            <p class="text-sm text-gray-600">@${user.username}</p>
+                        </div>
+                        <button class="view-profile px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
+                            View Profile
+                        </button>
+                    </div>
+                `;
+
+                userCard.querySelector('.view-profile').addEventListener('click', () => {
+                    showBioCard(user);
+                });
+
+                searchResults.appendChild(userCard);
+            });
+        }
+
+        function showBioCard(user) {
+            selectedUser = user;
+            const bioCard = document.getElementById('bio-card-modal');
+            const bioContent = document.getElementById('bio-card-content');
+            
+            bioContent.innerHTML = `
+                <h3 class="text-xl font-semibold mb-4">${user.name}'s Profile</h3>
+                <p class="mb-2"><span class="font-medium">Username:</span> @${user.username}</p>
+                <p class="mb-2"><span class="font-medium">Member since:</span> ${new Date(user.createdAt).toLocaleDateString()}</p>
+            `;
+            
+            bioCard.classList.remove('hidden');
+        }
+
+        document.getElementById('close-bio-card').addEventListener('click', () => {
+            document.getElementById('bio-card-modal').classList.add('hidden');
+            selectedUser = null;
+        });
+
+        document.getElementById('send-friend-request').addEventListener('click', async () => {
+            if (!selectedUser) return;
+            
+            try {
+                const response = await fetch('/friends/send-request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        receiverId: selectedUser.uniqueId
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Friend request sent successfully!');
+                    document.getElementById('bio-card-modal').classList.add('hidden');
+                } else {
+                    alert(result.error || 'Failed to send friend request');
+                }
+            } catch (error) {
+                console.error('Error sending friend request:', error);
+                alert('Failed to send friend request');
+            }
+        });
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
     </script>
 </body>
-
 </html>

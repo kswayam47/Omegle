@@ -159,6 +159,43 @@ router.get('/relations', async (req, res) => {
     }
 });
 
+// Search users route
+router.get('/search-users', async (req, res) => {
+    try {
+        if (!req.session.userId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const searchQuery = req.query.q;
+        const currentUserId = req.session.userId;
+
+        if (!searchQuery) {
+            const users = await User.find(
+                { _id: { $ne: currentUserId } },
+                { password: 0 }
+            ).limit(10);
+            return res.json(users);
+        }
+
+        const users = await User.find({
+            $and: [
+                { _id: { $ne: currentUserId } },
+                {
+                    $or: [
+                        { name: { $regex: searchQuery, $options: 'i' } },
+                        { username: { $regex: searchQuery, $options: 'i' } }
+                    ]
+                }
+            ]
+        }, { password: 0 }).limit(10);
+
+        res.json(users);
+    } catch (error) {
+        console.error('Search users error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Add dashboard route
 router.get('/dashboard', async (req, res) => {
     if (!req.session.userId) {
