@@ -17,12 +17,6 @@ router.get('/create', (req, res) => {
 });
 
 // Render chat page
-router.get('/chat', (req, res) => {
-    if (!req.session.userId) {
-        return res.redirect('/auth/login');
-    }
-    res.render('chat');
-});
 
 // Login route
 router.post('/login', async (req, res) => {
