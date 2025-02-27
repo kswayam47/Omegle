@@ -14,7 +14,7 @@ const User = require('./models/User');
 const Relation = require('./models/Relation');
 const initFriendSocket = require('./socket/friendSocket');
 const cors = require('cors');
-const { startMessageCleanup } = require('./utils/scheduler');
+
 require('dotenv').config();
 
 
@@ -81,7 +81,7 @@ io.use(wrap(sessionMiddleware));
 initFriendSocket(io);
 
 // Start message cleanup scheduler
-startMessageCleanup();
+
 
 const PRIVATE_ROOM_ID = 'rkgjtnnigot';
 const PRIVATE_ROOM_PIN = '1234'; // You should change this to your desired PIN
