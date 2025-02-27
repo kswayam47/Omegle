@@ -3,7 +3,6 @@ const app = express();
 const indexrouter = require("./routes/index");
 const authRouter = require("./routes/auth");
 const friendsRouter = require("./routes/friends");
-const customizationRouter = require('./routes/customization');
 const path = require("path");
 const http = require("http")
 const server = http.createServer(app);
@@ -14,17 +13,16 @@ const MongoStore = require('connect-mongo');
 const User = require('./models/User');
 const Relation = require('./models/Relation');
 const initFriendSocket = require('./socket/friendSocket');
-const initEnhancedChat = require('./socket/enhancedChat');
 const cors = require('cors');
 const { startMessageCleanup } = require('./utils/scheduler');
-const fs = require('fs');
 require('dotenv').config();
+
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
-})
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.log('MongoDB connection error:', err));
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
 
 // Session configuration
 const sessionMiddleware = session({
@@ -35,9 +33,7 @@ const sessionMiddleware = session({
         mongoUrl: process.env.MONGO_URI
     }),
     cookie: {
-        secure: true,  // Set to false if running locally (http)
-        httpOnly: true, // Prevents XSS attacks
-        maxAge: 1000 * 60 * 60 * 24 // 1 day
+        maxAge: 1000 * 60 * 60 * 24, // 24 hours
     }
 });
 
@@ -83,9 +79,6 @@ io.use(wrap(sessionMiddleware));
 
 // Initialize friend socket
 initFriendSocket(io);
-
-// Initialize enhanced chat features
-initEnhancedChat(io);
 
 // Start message cleanup scheduler
 startMessageCleanup();
@@ -360,13 +353,6 @@ app.use(express.static(path.join(__dirname,'public')));
 // Use routers
 app.use("/",indexrouter);
 app.use("/auth",authRouter);
-app.use('/api/customization', customizationRouter);
-
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'public', 'uploads', 'avatars');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
 const port = process.env.PORT || 5000;
 server.listen(port, '0.0.0.0', () => {

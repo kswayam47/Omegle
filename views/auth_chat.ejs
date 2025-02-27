@@ -557,28 +557,24 @@
             document.getElementById('bio-card-modal').classList.add('hidden');
             selectedUser = null;
         });
+        function sendRequestToSelectedUser() {
+    if (!selectedUser || !selectedUser.uniqueId) {
+        showNotification('No user selected', 'error');
+        return;
+    }
+    if (selectedUser.uniqueId === myUniqueId) {
+        showNotification('You cannot send a friend request to yourself', 'error');
+        return;
+    }
+    socket.emit('sendFriendRequest', { to: selectedUser.uniqueId });
+    showNotification('Friend request sent!', 'success');
+}
 
         document.getElementById('send-friend-request').addEventListener('click', async () => {
             if (!selectedUser) return;
             
             try {
-                const response = await fetch('/friends/send-request', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        receiverId: selectedUser.uniqueId
-                    })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    alert('Friend request sent successfully!');
-                    document.getElementById('bio-card-modal').classList.add('hidden');
-                } else {
-                    alert(result.error || 'Failed to send friend request');
-                }
+                sendRequestToSelectedUser();
             } catch (error) {
                 console.error('Error sending friend request:', error);
                 alert('Failed to send friend request');
