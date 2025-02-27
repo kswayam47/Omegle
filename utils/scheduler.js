@@ -14,9 +14,9 @@ async function deleteOldMessages() {
 }
 
 // Schedule message deletion every hour
-function startMessageCleanup() {
+async function startMessageCleanup() {
     // Run immediately on startup
-    deleteOldMessages();
+    await deleteOldMessages();
     
     // Then run every hour
     setInterval(deleteOldMessages, 60 * 60 * 1000);
