@@ -6,6 +6,11 @@ const User = require('../models/User');
 const Relation = require('../models/Relation');
 const Message = require('../models/Message');
 
+
+router.get('/chat', (req, res) => {
+  
+    res.render('chat');
+});
 // Render login page
 router.get('/login', (req, res) => {
     res.render('login');
