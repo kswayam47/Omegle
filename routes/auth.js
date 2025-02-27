@@ -5,9 +5,9 @@ const { v4: uuidv4 } = require('uuid');
 const User = require('../models/User');
 const Relation = require('../models/Relation');
 const Message = require('../models/Message');
+const { isAuthenticated } = require('../middleware/auth');
 
-
-router.get('/chat', (req, res) => {
+router.get('/chat',isAuthenticated, (req, res) => {
   
     res.render('chat');
 });

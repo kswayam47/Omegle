@@ -9,7 +9,7 @@ router.get("/", function(req, res) {
 });
 
 // Random chat
-router.get("/chat", isAuthenticated, function(req, res) {
+router.get("/chat",function(req, res) {
     const roomId = req.query.room || null;
     res.render("chat", { roomId });
 });
