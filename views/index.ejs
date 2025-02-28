@@ -1,76 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Chat App</title>
+    <title>ConnectMe - Video Chat Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
+            padding: 1.5rem;
+            color: #F8FAFC;
         }
 
         .glass-effect {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            border-radius: 1rem;
-            padding: 2rem;
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
             width: 100%;
-            max-width: 24rem;
+            max-width: 38rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-effect::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -50%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to right,
+                transparent,
+                rgba(255, 255, 255, 0.1),
+                transparent
+            );
+            transform: skewX(-25deg);
+            animation: shine 8s infinite;
+        }
+
+        @keyframes shine {
+            0% { left: -50%; }
+            100% { left: 150%; }
         }
 
         .button {
             width: 100%;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 1rem;
+            font-weight: 600;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
         }
 
         .button:hover {
             transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
         }
 
         .button-primary {
-            background-color: #4F46E5;
+            background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
             color: white;
         }
 
         .button-secondary {
-            background-color: #10B981;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
             color: white;
         }
 
         .button-outline {
-            border: 2px solid #4F46E5;
-            color: #4F46E5;
+            background: transparent;
+            border: 2px solid rgba(99, 102, 241, 0.5);
+            color: #6366F1;
         }
 
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        }
-
-        .button-hover {
+        .input-field {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
             transition: all 0.3s ease;
+            font-size: 1rem;
         }
 
-        .button-hover:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        .input-field:focus {
+            outline: none;
+            border-color: #6366F1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .logo-container {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366F1 0%, #10B981 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .tagline {
+            color: #94A3B8;
+            font-size: 1rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            border-radius: 1rem;
+            text-align: center;
+        }
+
+        .feature-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #6366F1;
+        }
+
+        .notification-banner {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 1rem 1.5rem;
+            border-radius: 1rem;
+            background: #6366F1;
+            color: white;
+            display: none;
+            animation: slideIn 0.3s ease;
+            z-index: 50;
         }
 
         .room-id-container {
@@ -87,12 +172,11 @@
         }
 
         .back-button {
-            position: absolute;
-            top: 1.5rem;
-            left: 1.5rem;
-            padding: 0.5rem;
-            cursor: pointer;
-            color: #4F46E5;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #6366F1;
+            font-weight: 500;
             transition: all 0.3s ease;
         }
 
@@ -103,18 +187,18 @@
         #generated-room-id {
             font-family: monospace;
             padding: 1rem;
-            background: #F3F4F6;
-            border-radius: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0.75rem;
             text-align: center;
             font-size: 1.25rem;
             margin-bottom: 0.5rem;
-            border: 2px dashed #D1D5DB;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
         }
 
         .copy-button {
             background: none;
             border: none;
-            color: #4F46E5;
+            color: #6366F1;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -126,89 +210,66 @@
         }
 
         .copy-button:hover {
-            background: #F3F4F6;
+            background: rgba(255, 255, 255, 0.05);
         }
 
-        .input-field {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 2px solid #E5E7EB;
-            border-radius: 0.5rem;
-            transition: all 0.3s ease;
-            font-size: 1rem;
-        }
-
-        .input-field:focus {
-            outline: none;
-            border-color: #4F46E5;
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-        .notification-banner {
-            display: none;
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            background: #4F46E5;
-            color: white;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 
-<body class="flex items-center justify-center min-h-screen p-4">
-    <div class="glass-effect p-8 rounded-2xl w-full max-w-md relative">
+<body>
+    <div class="glass-effect">
+        <div class="logo-container">
+            <div class="logo">ConnectMe</div>
+            <p class="tagline">Connect with the world, instantly</p>
+        </div>
+
         <!-- Auth Options -->
-        <a href="/auth/login" class="button button-primary block text-center mb-4">
-            Login
-        </a>
-        <a href="/auth/create" class="button button-secondary block text-center mb-4">
-            Register
-        </a>
+        <div class="space-y-4 mb-6">
+            <a href="/auth/login" class="button button-primary">
+                <i class="fas fa-sign-in-alt"></i>
+                Login
+            </a>
+            <a href="/auth/create" class="button button-secondary">
+                <i class="fas fa-user-plus"></i>
+                Register
+            </a>
+        </div>
 
         <div class="relative my-6">
             <div class="absolute inset-0 flex items-center">
-                <div class="w-full border-t border-gray-300"></div>
+                <div class="w-full border-t border-gray-700"></div>
             </div>
             <div class="relative flex justify-center text-sm">
-                <span class="px-2 bg-white text-gray-500">Or continue with</span>
+                <span class="px-4 bg-[#1E293B] text-gray-400">or try now</span>
             </div>
         </div>
 
         <!-- Main Options -->
-        <div id="main-options" class="flex flex-col gap-4">
-            <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Video Chat App</h1>
-            
+        <div id="main-options">
             <button onclick="showRandomChat()" 
-                class="button-hover w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-4 px-6 rounded-xl font-medium">
+                class="button button-primary mb-4">
+                <i class="fas fa-random"></i>
                 Random Chat
             </button>
             
             <button onclick="showCreateRoom()" 
-                class="button-hover w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-4 px-6 rounded-xl font-medium">
+                class="button button-secondary mb-4">
+                <i class="fas fa-plus-circle"></i>
                 Create Room
             </button>
             
-            <button onclick="showJoinRoom()" 
-                class="button-hover w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 px-6 rounded-xl font-medium">
+            <button onclick="showJoinRoom()"
+                class="button button-outline mb-4">
+                <i class="fas fa-sign-in-alt"></i>
                 Join Room
             </button>
 
             <button onclick="showPrivateChat()"
-                class="button-hover w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-4 px-6 rounded-xl font-medium">
+                class="button button-secondary">
+                <i class="fas fa-lock"></i>
                 Private Chat
             </button>
         </div>
@@ -216,18 +277,12 @@
         <!-- Create Room Container -->
         <div id="create-room" class="room-id-container">
             <span class="back-button" onclick="showMainOptions()">← Back</span>
-            <h2 class="text-2xl font-semibold mb-6 text-center">Your Room ID</h2>
-            <div id="generated-room-id" class="select-all"></div>
+            <h2 class="text-2xl font-semibold mb-6 text-center">Create a Room</h2>
+            <div id="generated-room-id" class="bg-gray-800 text-white"></div>
             <button class="copy-button" onclick="copyRoomId()">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
-                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
-                </svg>
-                Copy Room ID
+                <i class="fas fa-copy"></i> Copy Room ID
             </button>
-            <p class="text-sm text-gray-600 text-center mt-4">Share this Room ID with someone to start chatting</p>
-            <button onclick="proceedToChat()" 
-                class="button-hover w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-3 px-6 rounded-xl font-medium mt-6">
+            <button onclick="proceedToChat()" class="button-hover w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white py-3 px-6 rounded-xl font-medium mt-6">
                 Proceed to Chat
             </button>
         </div>
@@ -264,13 +319,19 @@
                 <span class="font-semibold">Room ID: </span>
                 <span id="current-room-id" class="font-mono"></span>
             </div>
-        </div>
-
-        <!-- Notification Banner -->
-        <div id="notification-banner" class="notification-banner">
-            New message received!
+            <div id="video-grid" class="grid grid-cols-2 gap-4 mb-4"></div>
+            <div class="flex space-x-2">
+                <button id="toggle-video" class="button button-outline flex-1">
+                    <i class="fas fa-video"></i>
+                </button>
+                <button id="toggle-audio" class="button button-outline flex-1">
+                    <i class="fas fa-microphone"></i>
+                </button>
+            </div>
         </div>
     </div>
+
+    <div class="notification-banner" id="notification-banner"></div>
 
     <script>
         let notificationPermission = false;
@@ -279,31 +340,17 @@
             try {
                 const permission = await Notification.requestPermission();
                 notificationPermission = permission === 'granted';
-                return notificationPermission;
             } catch (error) {
                 console.error('Error requesting notification permission:', error);
-                return false;
             }
-        }
-
-        function showNotification(title, body) {
-            if (notificationPermission) {
-                new Notification(title, {
-                    body: body,
-                    icon: '/notification-icon.png' // Make sure to add an icon image
-                });
-            }
-        }
-
-        function generateRoomId() {
-            return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         }
 
         function showMainOptions() {
-            document.getElementById('main-options').style.display = 'flex';
+            document.getElementById('main-options').style.display = 'block';
             document.getElementById('create-room').classList.remove('active');
             document.getElementById('join-room').classList.remove('active');
             document.getElementById('private-chat').classList.remove('active');
+            document.getElementById('chat-interface').classList.add('hidden');
         }
 
         function showRandomChat() {
@@ -349,20 +396,22 @@
             }, 2000);
         }
 
-        async function proceedToChat() {
-            await requestNotificationPermission();
+        function generateRoomId() {
+            return Math.random().toString(36).substring(2, 15);
+        }
+
+        function proceedToChat() {
             const roomId = document.getElementById('generated-room-id').textContent;
             window.location.href = `/chat?room=${roomId}`;
         }
 
         async function joinRoom() {
-            await requestNotificationPermission();
             const roomId = document.getElementById('room-id-input').value.trim();
-            if (roomId) {
-                window.location.href = `/chat?room=${roomId}`;
-            } else {
+            if (!roomId) {
                 alert('Please enter a Room ID');
+                return;
             }
+            window.location.href = `/chat?room=${roomId}`;
         }
 
         async function joinPrivateChat() {
@@ -372,29 +421,10 @@
                 return;
             }
             
-            await requestNotificationPermission();
-            
             // Generate a unique room ID based on the PIN
             const privateRoomId = 'private-' + btoa(pin).replace(/[^a-zA-Z0-9]/g, '');
             window.location.href = `/chat?room=${privateRoomId}&private=true`;
         }
-
-        // Function to update room ID display
-        function updateRoomIdDisplay() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (roomId) {
-                document.getElementById('current-room-id').textContent = roomId;
-                document.getElementById('room-id-display').style.display = 'block';
-            }
-        }
-
-        // Update room ID when chat interface is shown
-        socket.on('chat start', () => {
-            document.getElementById('main-options').classList.add('hidden');
-            document.getElementById('chat-interface').classList.remove('hidden');
-            updateRoomIdDisplay();
-        });
     </script>
 </body>
-
 </html>

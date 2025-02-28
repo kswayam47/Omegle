@@ -55,7 +55,7 @@ router.post('/create', async (req, res) => {
     try {
         const { name, username, password } = req.body;
 
-        // Check if username exists
+       
         const existingUser = await User.findOne({ username });
         if (existingUser) {
             return res.json({ success: false, message: 'Username already exists' });

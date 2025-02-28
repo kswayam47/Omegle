@@ -4,8 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@heroicons/v1/outline"></script>
     <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f3f4f6;
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
         .friend-request {
             position: fixed;
             top: 50%;
@@ -13,8 +24,8 @@
             transform: translate(-50%, -50%);
             background: white;
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             display: none;
             z-index: 1000;
         }
@@ -25,6 +36,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
             display: none;
             z-index: 999;
         }
@@ -32,76 +44,104 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            padding: 15px;
-            border-radius: 5px;
+            padding: 1rem;
+            border-radius: 0.5rem;
             color: white;
             display: none;
             z-index: 1001;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
         .notification.error {
-            background-color: #dc3545;
+            background-color: #EF4444;
         }
         .notification.success {
-            background-color: #198754;
+            background-color: #10B981;
         }
         .online-status {
             width: 10px;
             height: 10px;
             border-radius: 50%;
             display: inline-block;
-            margin-right: 5px;
+            margin-right: 8px;
+            transition: all 0.3s ease;
         }
         .online {
-            background-color: #28a745;
+            background-color: #10B981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
         }
         .offline {
-            background-color: #dc3545;
+            background-color: #EF4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
         }
     </style>
 </head>
-<body>
-    <div class="container mt-5">
-        <div class="row">
-            <div class="col-md-8 offset-md-2">
-                <div class="card">
-                    <div class="card-header">
-                        <h2>Welcome <%= user.name %></h2>
+<body class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <div class="glass-effect rounded-2xl shadow-xl p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">Welcome, <%= user.name %></h2>
+                    <div class="flex items-center mt-2">
+                        <span class="text-gray-600 text-sm">Your ID:</span>
+                        <code id="userId" class="ml-2 px-3 py-1 bg-gray-100 rounded-lg text-sm font-mono"><%= user.uniqueId %></code>
+                        <button onclick="copyUserId()" class="ml-2 text-indigo-600 hover:text-indigo-700 text-sm flex items-center transition-colors duration-200">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                            </svg>
+                            Copy
+                        </button>
                     </div>
-                    <div class="card-body">
-                        <p>Your ID: <strong id="userId"><%= user.uniqueId %></strong> 
-                            <button class="btn btn-sm btn-outline-secondary" onclick="copyUserId()">Copy ID</button>
-                        </p>
-                        
-                        <!-- Friend Search Section -->
-                        <div class="mb-4">
-                            <h4>Find Friends</h4>
-                            <div class="input-group mb-3">
-                                <input type="text" id="search-input" class="form-control" placeholder="Search users...">
-                            </div>
-                            <div id="search-results" class="list-group mb-4">
-                                <!-- Search results will be populated here -->
-                            </div>
-                        </div>
+                </div>
+            </div>
 
-                        <div class="mb-3">
-                            <label for="friendId" class="form-label">Enter Friend's ID:</label>
-                            <input type="text" class="form-control" id="friendId">
-                            <button class="btn btn-primary mt-2" onclick="sendFriendRequest()">Send Friend Request</button>
+            <!-- Friend Search Section -->
+            <div class="mb-8">
+                <h4 class="text-lg font-semibold text-gray-700 mb-4">Find Friends</h4>
+                <div class="relative">
+                    <input type="text" id="search-input" class="w-full px-4 py-3 bg-white rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow" placeholder="Search users...">
+                    <svg class="w-5 h-5 absolute right-3 top-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+                <div id="search-results" class="mt-4 space-y-2">
+                    <!-- Search results will be populated here -->
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <div class="flex space-x-4">
+                    <input type="text" id="friendId" class="flex-1 px-4 py-3 bg-white rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow" placeholder="Enter Friend's ID">
+                    <button onclick="sendFriendRequest()" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors duration-200 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Send Request
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Your Friends</h3>
+                <div id="friendsList" class="space-y-3">
+                    <% friends.forEach(friend => { %>
+                        <div class="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200" id="friend-<%= friend.uniqueId %>">
+                            <div class="flex items-center">
+                                <span class="online-status offline"></span>
+                                <span class="font-medium text-gray-800"><%= friend.name %></span>
+                                <span class="text-gray-500 text-sm ml-2">(<%= friend.uniqueId %>)</span>
+                            </div>
+                            <button class="chat-btn px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center" onclick="startChat('<%= friend.uniqueId %>')" disabled>
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                </svg>
+                                Chat
+                            </button>
                         </div>
-                        <hr>
-                        <h3>Your Friends</h3>
-                        <div id="friendsList">
-                            <% friends.forEach(friend => { %>
-                                <div class="d-flex justify-content-between align-items-center mb-2" id="friend-<%= friend.uniqueId %>">
-                                    <div>
-                                        <span class="online-status offline"></span>
-                                        <span><%= friend.name %> (<%= friend.uniqueId %>)</span>
-                                    </div>
-                                    <button class="btn btn-success btn-sm chat-btn" onclick="startChat('<%= friend.uniqueId %>')" disabled>Chat</button>
-                                </div>
-                            <% }); %>
-                        </div>
-                    </div>
+                    <% }); %>
                 </div>
             </div>
         </div>
@@ -109,30 +149,36 @@
 
     <!-- Friend Request Popup -->
     <div class="overlay" id="overlay"></div>
-    <div class="friend-request" id="friendRequest">
-        <h4>Friend Request</h4>
-        <p id="requestMessage"></p>
-        <button class="btn btn-success me-2" onclick="acceptFriendRequest()">Accept</button>
-        <button class="btn btn-danger" onclick="rejectFriendRequest()">Reject</button>
+    <div class="friend-request glass-effect" id="friendRequest">
+        <h4 class="text-xl font-semibold text-gray-800 mb-4">Friend Request</h4>
+        <p id="requestMessage" class="text-gray-600 mb-6"></p>
+        <div class="flex space-x-3">
+            <button class="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors duration-200" onclick="acceptFriendRequest()">Accept</button>
+            <button class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200" onclick="rejectFriendRequest()">Reject</button>
+        </div>
     </div>
 
     <!-- Notification -->
     <div class="notification" id="notification"></div>
 
     <!-- Bio Card Modal -->
-    <div class="modal fade" id="bio-card-modal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">User Profile</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal fade fixed inset-0 z-50 hidden" id="bio-card-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog relative w-auto pointer-events-none max-w-lg mx-auto mt-16">
+            <div class="modal-content glass-effect relative flex flex-col w-full pointer-events-auto rounded-2xl">
+                <div class="modal-header flex items-center justify-between p-4 border-b border-gray-200">
+                    <h5 class="text-xl font-semibold text-gray-800">User Profile</h5>
+                    <button type="button" class="text-gray-400 hover:text-gray-500 focus:outline-none" data-bs-dismiss="modal">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
                 </div>
-                <div class="modal-body" id="bio-card-content">
+                <div class="modal-body p-6" id="bio-card-content">
                     <!-- Bio card content will be populated here -->
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="send-friend-request">Send Friend Request</button>
+                <div class="modal-footer flex items-center justify-end p-4 border-t border-gray-200 gap-3">
+                    <button type="button" class="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2" id="send-friend-request">Send Friend Request</button>
                 </div>
             </div>
         </div>
@@ -332,7 +378,7 @@
                 </div>
                 <div class="mb-3">
                     <strong>Bio:</strong>
-                    <p>${user.bio || "No bio available"}</p>
+                    <p>${ "Hey there ! I am Using ConnectME!"}</p>
                 </div>
                 <div>
                     <strong>Member since:</strong>
